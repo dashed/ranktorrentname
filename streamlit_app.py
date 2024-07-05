@@ -296,7 +296,7 @@ def render_settings():
         st.json(st.session_state.conf['settings_model'])
 
     with st.expander("Import Settings"):
-        st.write("Copy and paste your riven settings found under `ranking`.")
+        st.write("Copy and paste your riven settings.")
 
         with st.form("settings_import", border=False):
             json_string = st.text_area("JSON", "")
@@ -305,6 +305,8 @@ def render_settings():
                 json_import = None
                 try:
                     json_import = json.loads(json_string)
+                    if 'ranking' in json_import:
+                        json_import = json_import['ranking']
                     RivenRankingSettings(**json_import)
                 except:
                     st.write(":no_entry_sign: Invalid JSON")
@@ -312,6 +314,7 @@ def render_settings():
                     if json_import is not None:
                         st.session_state.conf['settings_model'] = json_import
                         save_conf_to_query_params()
+                        st.write("Imported JSON")
 
     with st.container(border=True):
         with st.form("render_settings_form", border=False):
