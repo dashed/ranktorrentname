@@ -1,5 +1,6 @@
 import streamlit as st
 from RTN import RTN
+from RTN.parser import parse
 from RTN.models import BaseRankingModel
 from RTN.models import DefaultRanking
 from RTN.models import SettingsModel, CustomRank
@@ -165,42 +166,6 @@ riven_rank_models = {
 }
 
 
-def default_custom_ranks():
-    return {
-        "uhd": CustomRank(fetch=False, rank=120),
-        "fhd": CustomRank(fetch=True, rank=100),
-        "hd": CustomRank(fetch=True, rank=80),
-        "sd": CustomRank(fetch=False, rank=-120),
-        "bluray": CustomRank(fetch=True, rank=80),
-        "hdr": CustomRank(fetch=False, rank=80),
-        "hdr10": CustomRank(fetch=False, rank=90),
-        "dolby_video": CustomRank(fetch=False, rank=-100),
-        "dts_x": CustomRank(fetch=False, rank=0),
-        "dts_hd": CustomRank(fetch=False, rank=0),
-        "dts_hd_ma": CustomRank(fetch=False, rank=0),
-        "atmos": CustomRank(fetch=False, rank=0),
-        "truehd": CustomRank(fetch=False, rank=0),
-        "ddplus": CustomRank(fetch=False, rank=0),
-        "aac": CustomRank(fetch=True, rank=70),
-        "ac3": CustomRank(fetch=True, rank=50),
-        "remux": CustomRank(fetch=False, rank=-1000),
-        "webdl": CustomRank(fetch=True, rank=90),
-        "repack": CustomRank(fetch=True, rank=5),
-        "proper": CustomRank(fetch=True, rank=4),
-        "dubbed": CustomRank(fetch=True, rank=3),
-        "subbed": CustomRank(fetch=True, rank=3),
-        "av1": CustomRank(fetch=False, rank=0),
-        "h264": CustomRank(fetch=True, rank=0),
-        "h265": CustomRank(fetch=True, rank=0),
-        "hevc": CustomRank(fetch=True, rank=0),
-        "avc": CustomRank(fetch=True, rank=0),
-        "dvdrip": CustomRank(fetch=True, rank=-100),
-        "bdrip": CustomRank(fetch=True, rank=5),
-        "brrip": CustomRank(fetch=True, rank=0),
-        "hdtv": CustomRank(fetch=True, rank=-100),
-    }
-
-
 def generate_initial_conf():
     return {
         "titles": [{
@@ -213,9 +178,42 @@ def generate_initial_conf():
         # settings model
         "settings_model": {
             "profile": "default",
-            "require": ["4K", "1080p"],
-            "exclude": ["/CAM/i", "TS"],
-            "preferred": ["HDR", "/BluRay/"],
+            "require": [],
+            "exclude": [],
+            "preferred": [],
+            "custom_ranks": {
+                "uhd": {"fetch": False, "rank": 120, "enable": False},
+                "fhd": {"fetch": True, "rank": 100, "enable": False},
+                "hd": {"fetch": True, "rank": 80, "enable": False},
+                "sd": {"fetch": False, "rank": -120, "enable": False},
+                "bluray": {"fetch": True, "rank": 80, "enable": False},
+                "hdr": {"fetch": False, "rank": 80, "enable": False},
+                "hdr10": {"fetch": False, "rank": 90, "enable": False},
+                "dolby_video": {"fetch": False, "rank": -100, "enable": False},
+                "dts_x": {"fetch": False, "rank": 0, "enable": False},
+                "dts_hd": {"fetch": False, "rank": 0, "enable": False},
+                "dts_hd_ma": {"fetch": False, "rank": 0, "enable": False},
+                "atmos": {"fetch": False, "rank": 0, "enable": False},
+                "truehd": {"fetch": False, "rank": 0, "enable": False},
+                "ddplus": {"fetch": False, "rank": 0, "enable": False},
+                "aac": {"fetch": True, "rank": 70, "enable": False},
+                "ac3": {"fetch": True, "rank": 50, "enable": False},
+                "remux": {"fetch": False, "rank": -1000, "enable": False},
+                "webdl": {"fetch": True, "rank": 90, "enable": False},
+                "repack": {"fetch": True, "rank": 5, "enable": False},
+                "proper": {"fetch": True, "rank": 4, "enable": False},
+                "dubbed": {"fetch": True, "rank": 3, "enable": False},
+                "subbed": {"fetch": True, "rank": 3, "enable": False},
+                "av1": {"fetch": False, "rank": 0, "enable": False},
+                "h264": {"fetch": True, "rank": 0, "enable": False},
+                "h265": {"fetch": True, "rank": 0, "enable": False},
+                "hevc": {"fetch": True, "rank": 0, "enable": False},
+                "avc": {"fetch": True, "rank": 0, "enable": False},
+                "dvdrip": {"fetch": True, "rank": -100, "enable": False},
+                "bdrip": {"fetch": True, "rank": 5, "enable": False},
+                "brrip": {"fetch": True, "rank": 0, "enable": False},
+                "hdtv": {"fetch": True, "rank": -100, "enable": False},
+            }
         }
     }
 
@@ -243,18 +241,23 @@ def load_conf_from_query_params():
 load_conf_from_query_params()
 
 
-def get_settings_model():
-    settings_model = st.session_state.conf['settings_model']
+def get_settings_model(settings_model):
+
+    custom_ranks = dict()
+    for type, custom_rank in settings_model['custom_ranks'].items():
+        custom_ranks[type] = CustomRank(
+            fetch=bool(custom_rank['fetch']), rank=custom_rank['rank'])
+
     return SettingsModel(
         profile=settings_model['profile'],
         require=settings_model['require'],
         exclude=settings_model['exclude'],
         preferred=settings_model['preferred'],
-        custom_ranks=default_custom_ranks()
+        custom_ranks=custom_ranks,
     )
 
 
-def remove_none(original_list):
+def remove_falsey(original_list):
     return list(filter(lambda x: x, original_list))
 
 
@@ -262,9 +265,10 @@ def render_settings():
     with st.container(border=True):
         st.subheader('Settings')
         with st.form("render_settings_form", border=False):
-            remove_trash = st.checkbox("Indicate trash titles")
-
             settings_model = st.session_state.conf['settings_model']
+
+            remove_trash = st.checkbox(
+                "Indicate trash titles", value=bool(st.session_state.conf['remove_trash']))
 
             choices = list(riven_rank_models.keys())
             choices.sort()
@@ -280,27 +284,62 @@ def render_settings():
             # "exclude": ["/CAM/i", "TS"],
             # "preferred": ["HDR", "/BluRay/"],
 
-            data = {"require": settings_model['require'],
-                    "exclude": settings_model['exclude'],
-                    "preferred": settings_model['preferred']}
+            filters = {"require": settings_model.get('require', []) or [''],
+                       "exclude": settings_model.get('exclude', []) or [''],
+                       "preferred": settings_model.get('preferred', []) or ['']}
 
             st.write('Filters')
-            next_data = st.data_editor(
-                data, num_rows="dynamic", use_container_width=True)
+            next_filters = st.data_editor(
+                filters, num_rows="dynamic", use_container_width=True,
+                column_config={
+                    "require": st.column_config.TextColumn(),
+                    "exclude": st.column_config.TextColumn(),
+                    "preferred": st.column_config.TextColumn(),
+                }
+            )
+
+            st.write('Custom Ranks')
+            custom_ranks = settings_model['custom_ranks']
+
+            serialized_custom_ranks = []
+            for name, custom_rank in custom_ranks.items():
+                serialized_custom_ranks.append({
+                    "type": name,
+                    "fetch": bool(custom_rank['fetch']),
+                    "rank": custom_rank['rank'],
+                    "enable": bool(custom_rank['enable']),
+                })
+
+            next_custom_ranks = st.data_editor(
+                serialized_custom_ranks, num_rows="fixed", use_container_width=True,
+                disabled=["type"],
+                column_config={
+                    "fetch": st.column_config.CheckboxColumn(),
+                    "rank": st.column_config.NumberColumn(),
+                    "enable": st.column_config.CheckboxColumn(),
+                }
+            )
 
             submit = st.form_submit_button('Update Settings')
 
-        if submit:
-            st.write('submitted')
-            st.session_state.conf['remove_trash'] = bool(remove_trash)
-            st.session_state.conf['settings_model'] = {
-                "profile": rank_model_profile or 'default',
-                "require": remove_none(next_data['require']),
-                "exclude": remove_none(next_data['exclude']),
-                "preferred": remove_none(next_data['preferred'])}
+            if submit:
+                custom_ranks = {}
+                for custom_rank in next_custom_ranks:
+                    type = custom_rank['type']
+                    custom_ranks[type] = {
+                        "fetch": bool(custom_rank['fetch']),
+                        "rank": int(custom_rank['rank']),
+                        "enable": bool(custom_rank['enable']),
+                    }
 
-            st.code(json.dumps(st.session_state.conf['settings_model']))
-            save_conf_to_query_params()
+                st.session_state.conf['remove_trash'] = bool(remove_trash)
+                st.session_state.conf['settings_model'] = {
+                    "profile": rank_model_profile or 'default',
+                    "require": remove_falsey(next_filters.get('require', [])),
+                    "exclude": remove_falsey(next_filters.get('exclude', [])),
+                    "preferred": remove_falsey(next_filters.get('preferred', [])),
+                    "custom_ranks": custom_ranks, }
+                save_conf_to_query_params()
 
 
 render_settings()
@@ -309,7 +348,6 @@ render_settings()
 def render_title(*, conf, index, initial_raw_title, initial_correct_title):
     with st.container(border=True):
         unique_key = f"{index}_{initial_raw_title}_{initial_correct_title}"
-        st.write(unique_key)
         if index > 0:
             def delete_current_title():
                 del st.session_state.conf['titles'][index]
@@ -326,28 +364,34 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
 
             submit = st.form_submit_button('Rank')
 
-        if submit:
-            st.write('submitted')
-            conf['titles'][index] = {
-                "raw_title": raw_title_text_input,
-                "correct_title": correct_title_text_input
-            }
-            save_conf_to_query_params()
+            if submit:
+                conf['titles'][index] = {
+                    "raw_title": raw_title_text_input,
+                    "correct_title": correct_title_text_input
+                }
+                save_conf_to_query_params()
 
         try:
             ranking_model = riven_rank_models.get(
                 st.session_state.conf['settings_model']['profile'])
 
-            rtn = RTN(settings=get_settings_model(),
+            rtn = RTN(settings=get_settings_model(st.session_state.conf['settings_model']),
                       ranking_model=ranking_model)
             info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
 
             torrent = rtn.rank(raw_title=raw_title_text_input,
                                correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
 
-            st.markdown(f"**Rank:** {torrent.rank}")
+            st.write(f"**Rank:** {torrent.rank}")
+            st.write(f"**Fetch:** {torrent.fetch}")
+
+            with st.expander("Debug"):
+                parsed_data = dict(parse(raw_title=raw_title_text_input))
+                st.subheader('ParsedData')
+                st.write(parsed_data)
         except Exception as err:
             st.write(str(err))
+            raise err
 
 
 for index, section in enumerate(st.session_state.conf['titles']):
