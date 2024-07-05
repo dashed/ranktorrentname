@@ -69,6 +69,8 @@ def generate_initial_conf():
             "correct_title": ""
         }],
 
+        "remove_trash": False,
+
         # settings model
         "settings_model": {
             "profile": "default",
@@ -79,8 +81,28 @@ def generate_initial_conf():
     }
 
 
-if 'conf' not in st.session_state:
-    st.session_state['conf'] = generate_initial_conf()
+def save_conf_to_query_params():
+    if 'conf' not in st.session_state:
+        return
+    st.query_params['conf'] = json.dumps(st.session_state.conf)
+
+
+def load_conf_from_query_params():
+    conf = st.query_params.get("conf")
+    if not conf:
+        conf = generate_initial_conf()
+    else:
+        try:
+            conf = json.loads(conf)
+        except Exception:
+            pass
+
+    st.session_state['conf'] = conf
+
+
+load_conf_from_query_params()
+# if 'conf' not in st.session_state:
+#     st.session_state['conf'] = conf
 
 settings = SettingsModel(
     profile="default",
@@ -107,23 +129,34 @@ if correct_title_query:
 
 def render_title(*, conf, index, initial_raw_title, initial_correct_title):
     with st.container(border=True):
-        with st.form("my_form"):
+        unique_key = f"{index}_{initial_raw_title}_{initial_correct_title}"
+        if index > 0:
+            def delete_current_title():
+                del st.session_state.conf['titles'][index]
+                save_conf_to_query_params()
+            st.button("Remove", on_click=delete_current_title,
+                      key=f"render_title_form_{unique_key}_delete")
+
+        with st.form(f"render_title_form_{unique_key}"):
             raw_title_text_input = st.text_input("Raw title (required)", value=initial_raw_title, type="default",
                                                  placeholder="Example.Movie.2020.1080p.BluRay.x264-Example")
 
-            correct_title = st.text_input("Correct title", value=initial_correct_title, type="default",
-                                          placeholder="Example Movie")
+            correct_title_text_input = st.text_input("Correct title", value=initial_correct_title, type="default",
+                                                     placeholder="Example Movie")
             submit = st.form_submit_button('Rank')
 
-        # if submit:
-        #     st.query_params['raw_title'] = raw_title
-        #     st.query_params['correct_title'] = correct_title
+        if submit:
+            conf['titles'][index] = {
+                "raw_title": raw_title_text_input,
+                "correct_title": correct_title_text_input
+            }
+            save_conf_to_query_params()
 
         try:
             rtn = RTN(settings=settings, ranking_model=DefaultRanking())
             info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
             torrent = rtn.rank(raw_title=raw_title_text_input,
-                               correct_title=correct_title, infohash=info_hash, remove_trash=True)
+                               correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
             st.markdown(f"**Rank:** {torrent.rank}")
         except Exception as err:
             st.write(str(err))
@@ -135,3 +168,14 @@ for index, section in enumerate(st.session_state.conf['titles']):
 
     render_title(conf=st.session_state.conf, index=index, initial_raw_title=initial_raw_title,
                  initial_correct_title=initial_correct_title)
+
+
+def add_new_title():
+    st.session_state.conf['titles'].append({
+        "raw_title": "",
+        "correct_title": ""
+    })
+    save_conf_to_query_params()
+
+
+st.button("Add", on_click=add_new_title)
