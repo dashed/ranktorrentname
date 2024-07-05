@@ -233,9 +233,11 @@ def save_conf_to_query_params():
 
 
 def load_conf_from_query_params():
+    initial_bootstrap = False
     conf = st.query_params.get("conf")
     if not conf:
         conf = generate_initial_conf()
+        initial_bootstrap = True
     else:
         try:
             conf = json.loads(conf)
@@ -243,6 +245,8 @@ def load_conf_from_query_params():
             pass
 
     st.session_state['conf'] = conf
+    if initial_bootstrap:
+        save_conf_to_query_params()
 
 
 load_conf_from_query_params()
@@ -253,7 +257,9 @@ def get_settings_model(settings_model):
     custom_ranks = dict()
     for type, custom_rank in settings_model['custom_ranks'].items():
         custom_ranks[type] = CustomRank(
-            fetch=bool(custom_rank['fetch']), rank=custom_rank['rank'])
+            fetch=bool(custom_rank['fetch']), 
+            rank=int(custom_rank['rank']),
+            enable=bool(custom_rank['enable']))
 
     return SettingsModel(
         profile=settings_model['profile'],
@@ -287,7 +293,7 @@ def render_settings():
 
     with st.expander("Export Settings"):
         st.write("Copy to your riven settings under `ranking`.")
-        st.write(st.session_state.conf['settings_model'])
+        st.json(st.session_state.conf['settings_model'])
 
     with st.expander("Import Settings"):
         st.write("Copy and paste your riven settings found under `ranking`.")
@@ -302,18 +308,18 @@ def render_settings():
                     RivenRankingSettings(**json_import)
                 except:
                     st.write(":no_entry_sign: Invalid JSON")
-                if json_import is not None:
-                    st.session_state.conf['settings_model'] = json_import
-                    save_conf_to_query_params()
-                    st.rerun()
-
+                else:
+                    if json_import is not None:
+                        st.session_state.conf['settings_model'] = json_import
+                        save_conf_to_query_params()
+                        st.rerun()
 
     with st.container(border=True):
         with st.form("render_settings_form", border=False):
             settings_model = st.session_state.conf['settings_model']
 
             remove_trash = st.checkbox(
-                "Indicate trash titles", 
+                "Indicate trash titles",
                 value=bool(st.session_state.conf['remove_trash']),
                 help="Checks if the title contains any unwanted patterns.")
 
@@ -336,8 +342,25 @@ def render_settings():
                        "preferred": settings_model.get('preferred', []) or ['']}
 
             st.write('#### Filters')
+
+            def transform_filters_dict(input_dict):
+                result = []
+                max_length = max(len(input_dict.get('require', [])),
+                                len(input_dict.get('exclude', [])),
+                                len(input_dict.get('preferred', [])))
+
+                for i in range(max_length):
+                    new_dict = {
+                        "require": input_dict.get('require', [])[i] if i < len(input_dict.get('require', [])) else None,
+                        "exclude": input_dict.get('exclude', [])[i] if i < len(input_dict.get('exclude', [])) else None,
+                        "preferred": input_dict.get('preferred', [])[i] if i < len(input_dict.get('preferred', [])) else None
+                    }
+                    result.append(new_dict)
+
+                return result
+
             next_filters = st.data_editor(
-                filters, num_rows="dynamic", use_container_width=True,
+                transform_filters_dict(filters), num_rows="dynamic", use_container_width=True,
                 column_config={
                     "require": st.column_config.TextColumn(),
                     "exclude": st.column_config.TextColumn(),
@@ -381,6 +404,22 @@ def render_settings():
                     }
 
                 st.session_state.conf['remove_trash'] = bool(remove_trash)
+
+                def reverse_filters_transform(input_list):
+                    result = {"require": [], "exclude": [], "preferred": []}
+                    
+                    for item in input_list:
+                        for key in ["require", "exclude", "preferred"]:
+                            if item[key] is not None:
+                                result[key].append(item[key])
+                    
+                    # Remove empty lists
+                    result = {k: v for k, v in result.items() if v}
+                    
+                    return result
+                
+                next_filters = reverse_filters_transform(next_filters)
+
                 st.session_state.conf['settings_model'] = {
                     "profile": rank_model_profile or 'default',
                     "require": remove_falsey(next_filters.get('require', [])),
@@ -388,6 +427,7 @@ def render_settings():
                     "preferred": remove_falsey(next_filters.get('preferred', [])),
                     "custom_ranks": custom_ranks, }
                 save_conf_to_query_params()
+                st.rerun()
 
 
 render_settings()
