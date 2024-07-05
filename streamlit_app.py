@@ -1,6 +1,8 @@
 import streamlit as st
 from RTN import RTN
+from RTN.fetch import check_required, check_exclude
 from RTN.parser import parse
+from RTN.ranker import calculate_preferred
 from RTN.models import BaseRankingModel
 from RTN.models import DefaultRanking
 from RTN.models import SettingsModel, CustomRank
@@ -261,9 +263,15 @@ def remove_falsey(original_list):
     return list(filter(lambda x: x, original_list))
 
 
+def emoji_bool(value):
+    if bool(value):
+        return ":white_check_mark:"
+    return ":x:"
+
+
 def render_settings():
+    st.header('Settings')
     with st.container(border=True):
-        st.subheader('Settings')
         with st.form("render_settings_form", border=False):
             settings_model = st.session_state.conf['settings_model']
 
@@ -288,7 +296,7 @@ def render_settings():
                        "exclude": settings_model.get('exclude', []) or [''],
                        "preferred": settings_model.get('preferred', []) or ['']}
 
-            st.write('Filters')
+            st.write('#### Filters')
             next_filters = st.data_editor(
                 filters, num_rows="dynamic", use_container_width=True,
                 column_config={
@@ -298,7 +306,8 @@ def render_settings():
                 }
             )
 
-            st.write('Custom Ranks')
+            st.write('#### Custom Ranks')
+            st.write("**NOTE:** When `enable` is `True` then we use the custom `rank` instead of the rank model profile's preset `rank`. Otherwise, we use the rank model profile's preset `rank`.")
             custom_ranks = settings_model['custom_ranks']
 
             serialized_custom_ranks = []
@@ -375,7 +384,9 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
             ranking_model = riven_rank_models.get(
                 st.session_state.conf['settings_model']['profile'])
 
-            rtn = RTN(settings=get_settings_model(st.session_state.conf['settings_model']),
+            settings_model = get_settings_model(
+                st.session_state.conf['settings_model'])
+            rtn = RTN(settings=settings_model,
                       ranking_model=ranking_model)
             info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
 
@@ -383,10 +394,26 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                                correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
 
             st.write(f"**Rank:** {torrent.rank}")
-            st.write(f"**Fetch:** {torrent.fetch}")
+            st.write(f"**Fetch:** {torrent.fetch} {emoji_bool(torrent.fetch)}")
+
+            parsed_data = parse(
+                raw_title=raw_title_text_input, remove_trash=False)
+
+            matches_required = check_required(parsed_data, settings_model)
+            st.write(
+                f"**Matches `required`:** {matches_required} {emoji_bool(matches_required)}")
+
+            matches_exclude = check_exclude(parsed_data, settings_model)
+            st.write(
+                f"**Matches `exclude`:** {matches_exclude} {emoji_bool(matches_exclude)}")
+
+            matches_preferred = calculate_preferred(
+                parsed_data, settings_model) > 0
+            st.write(
+                f"**Matches `preferred`:** {matches_preferred} {emoji_bool(matches_preferred)}")
 
             with st.expander("Debug"):
-                parsed_data = dict(parse(raw_title=raw_title_text_input))
+                parsed_data = dict(parsed_data)
                 st.subheader('ParsedData')
                 st.write(parsed_data)
         except Exception as err:
@@ -394,6 +421,7 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
             raise err
 
 
+st.header('Test Your Titles')
 for index, section in enumerate(st.session_state.conf['titles']):
     initial_raw_title = section['raw_title']
     initial_correct_title = section['correct_title']
@@ -411,3 +439,7 @@ def add_new_title():
 
 
 st.button("Add", on_click=add_new_title)
+
+with st.expander("Export Settings"):
+    st.write("Copy to your riven settings.")
+    st.write(st.session_state.conf['settings_model'])
