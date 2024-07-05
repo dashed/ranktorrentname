@@ -5,7 +5,7 @@ Test settings for `riven`.
 - https://github.com/dreulavelle/rank-torrent-name
 - https://github.com/rivenmedia/riven
 
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gdp-dashboard-template.streamlit.app/)
+[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ranktorrentname.streamlit.app/)
 
 ### How to run it on your own machine
 
