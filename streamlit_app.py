@@ -496,7 +496,6 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 st.write(parsed_data)
         except Exception as err:
             st.write(str(err))
-            raise err
 
 
 st.header('Test Your Titles')
