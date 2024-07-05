@@ -7,7 +7,8 @@ from RTN.models import BaseRankingModel
 from RTN.models import DefaultRanking
 from RTN.models import SettingsModel, CustomRank
 import json
-
+from pydantic import BaseModel
+from typing import List, Dict
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
@@ -273,14 +274,42 @@ def emoji_bool(value):
     return ":x:"
 
 
+class RivenRankingSettings(BaseModel):
+    profile: str
+    require: List[str]
+    exclude: List[str]
+    preferred: List[str]
+    custom_ranks: Dict[str, CustomRank]
+
+
 def render_settings():
     st.header('Settings')
+
+    with st.expander("Export Settings"):
+        st.write("Copy to your riven settings under `ranking`.")
+        st.write(st.session_state.conf['settings_model'])
+
+    with st.expander("Import Settings"):
+        st.write("Copy and paste your riven settings found under `ranking`.")
+
+        with st.form("settings_import", border=False):
+            json_string = st.text_area("JSON", "")
+            submit = st.form_submit_button('Import')
+            if submit:
+                json_import = json.loads(json_string)
+                RivenRankingSettings(**json_import)
+                st.session_state.conf['settings_model'] = json_import
+                save_conf_to_query_params()
+                st.rerun()
+
     with st.container(border=True):
         with st.form("render_settings_form", border=False):
             settings_model = st.session_state.conf['settings_model']
 
             remove_trash = st.checkbox(
-                "Indicate trash titles", value=bool(st.session_state.conf['remove_trash']))
+                "Indicate trash titles", 
+                value=bool(st.session_state.conf['remove_trash']),
+                help="Checks if the title contains any unwanted patterns.")
 
             choices = list(riven_rank_models.keys())
             choices.sort()
@@ -444,6 +473,8 @@ def add_new_title():
 
 st.button("Add", on_click=add_new_title)
 
-with st.expander("Export Settings"):
-    st.write("Copy to your riven settings.")
-    st.write(st.session_state.conf['settings_model'])
+with st.expander("Preset profiles"):
+    st.write("Showcase of the ranking numbers for each preset profile.")
+    for name, rank_model in riven_rank_models.items():
+        st.header(name)
+        st.write(dict(rank_model))
