@@ -257,7 +257,7 @@ def get_settings_model(settings_model):
     custom_ranks = dict()
     for type, custom_rank in settings_model['custom_ranks'].items():
         custom_ranks[type] = CustomRank(
-            fetch=bool(custom_rank['fetch']), 
+            fetch=bool(custom_rank['fetch']),
             rank=int(custom_rank['rank']),
             enable=bool(custom_rank['enable']))
 
@@ -346,8 +346,8 @@ def render_settings():
             def transform_filters_dict(input_dict):
                 result = []
                 max_length = max(len(input_dict.get('require', [])),
-                                len(input_dict.get('exclude', [])),
-                                len(input_dict.get('preferred', [])))
+                                 len(input_dict.get('exclude', [])),
+                                 len(input_dict.get('preferred', [])))
 
                 for i in range(max_length):
                     new_dict = {
@@ -407,17 +407,17 @@ def render_settings():
 
                 def reverse_filters_transform(input_list):
                     result = {"require": [], "exclude": [], "preferred": []}
-                    
+
                     for item in input_list:
                         for key in ["require", "exclude", "preferred"]:
                             if item[key] is not None:
                                 result[key].append(item[key])
-                    
+
                     # Remove empty lists
                     result = {k: v for k, v in result.items() if v}
-                    
+
                     return result
-                
+
                 next_filters = reverse_filters_transform(next_filters)
 
                 st.session_state.conf['settings_model'] = {
@@ -479,17 +479,18 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 raw_title=raw_title_text_input, remove_trash=False)
 
             matches_required = check_required(parsed_data, settings_model)
-            st.write(
-                f"**Matches `required`:** {matches_required} {emoji_bool(matches_required)}")
+            st.markdown(
+                f"**Matches `required`:** {matches_required} {emoji_bool(matches_required)}", help="Check if the title meets the `required` patterns.")
 
             matches_exclude = check_exclude(parsed_data, settings_model)
-            st.write(
-                f"**Matches `exclude`:** {matches_exclude} {emoji_bool(matches_exclude)}")
+            st.markdown(
+                f"**Matches `exclude`:** {matches_exclude} {emoji_bool(matches_exclude)}", help="Check if the title contains `excluded` patterns.")
 
             matches_preferred = calculate_preferred(
                 parsed_data, settings_model) > 0
-            st.write(
-                f"**Matches `preferred`:** {matches_preferred} {emoji_bool(matches_preferred)}")
+            st.markdown(
+                f"**Matches `preferred`:** {matches_preferred} {emoji_bool(matches_preferred)}",
+                help="Any matches to `preferred` gets a rank boost of 5000.")
 
             with st.expander("Debug"):
                 parsed_data = dict(parsed_data)
