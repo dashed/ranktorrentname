@@ -1,151 +1,137 @@
 import streamlit as st
-import pandas as pd
-import math
-from pathlib import Path
+from RTN import RTN
+from RTN.models import DefaultRanking
+from RTN.models import SettingsModel, CustomRank
+import json
+
 
 # Set the title and favicon that appear in the Browser's tab bar.
 st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
+    page_title="riven ranktorrentname",
+    page_icon=':popcorn:',  # This is an emoji shortcode. Could be a URL too.
 )
-
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
-
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
-
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
-
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
-
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
-
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
-
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
-
-    return gdp_df
-
-gdp_df = get_gdp_data()
 
 # -----------------------------------------------------------------------------
 # Draw the actual page
 
 # Set the title that appears at the top of the page.
 '''
-# :earth_americas: GDP dashboard
+# :popcorn: riven ranktorrentname
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
+https://github.com/dreulavelle/rank-torrent-name
 '''
 
 # Add some spacing
 ''
 ''
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
 
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
+def default_custom_ranks():
+    return {
+        "uhd": CustomRank(fetch=False, rank=120),
+        "fhd": CustomRank(fetch=True, rank=100),
+        "hd": CustomRank(fetch=True, rank=80),
+        "sd": CustomRank(fetch=False, rank=-120),
+        "bluray": CustomRank(fetch=True, rank=80),
+        "hdr": CustomRank(fetch=False, rank=80),
+        "hdr10": CustomRank(fetch=False, rank=90),
+        "dolby_video": CustomRank(fetch=False, rank=-100),
+        "dts_x": CustomRank(fetch=False, rank=0),
+        "dts_hd": CustomRank(fetch=False, rank=0),
+        "dts_hd_ma": CustomRank(fetch=False, rank=0),
+        "atmos": CustomRank(fetch=False, rank=0),
+        "truehd": CustomRank(fetch=False, rank=0),
+        "ddplus": CustomRank(fetch=False, rank=0),
+        "aac": CustomRank(fetch=True, rank=70),
+        "ac3": CustomRank(fetch=True, rank=50),
+        "remux": CustomRank(fetch=False, rank=-1000),
+        "webdl": CustomRank(fetch=True, rank=90),
+        "repack": CustomRank(fetch=True, rank=5),
+        "proper": CustomRank(fetch=True, rank=4),
+        "dubbed": CustomRank(fetch=True, rank=3),
+        "subbed": CustomRank(fetch=True, rank=3),
+        "av1": CustomRank(fetch=False, rank=0),
+        "h264": CustomRank(fetch=True, rank=0),
+        "h265": CustomRank(fetch=True, rank=0),
+        "hevc": CustomRank(fetch=True, rank=0),
+        "avc": CustomRank(fetch=True, rank=0),
+        "dvdrip": CustomRank(fetch=True, rank=-100),
+        "bdrip": CustomRank(fetch=True, rank=5),
+        "brrip": CustomRank(fetch=True, rank=0),
+        "hdtv": CustomRank(fetch=True, rank=-100),
+    }
 
-countries = gdp_df['Country Code'].unique()
 
-if not len(countries):
-    st.warning("Select at least one country")
+def generate_initial_conf():
+    return {
+        "titles": [{
+            "raw_title": "Example.Movie.2020.1080p.BluRay.x264-Example",
+            "correct_title": ""
+        }],
 
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
+        # settings model
+        "settings_model": {
+            "profile": "default",
+            "require": ["4K", "1080p"],
+            "exclude": ["/CAM/i", "TS"],
+            "preferred": ["HDR", "/BluRay/"],
+        }
+    }
 
-''
-''
-''
 
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
+if 'conf' not in st.session_state:
+    st.session_state['conf'] = generate_initial_conf()
 
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
+settings = SettingsModel(
+    profile="default",
+    require=["4K", "1080p"],
+    exclude=["/CAM/i", "TS"],
+    preferred=["HDR", "/BluRay/"],
+    custom_ranks=default_custom_ranks()
 )
 
-''
-''
+if 'raw_title' not in st.session_state or not st.session_state['raw_title']:
+    st.session_state.raw_title = "Example.Movie.2020.1080p.BluRay.x264-Example"
+
+if 'correct_title' not in st.session_state:
+    st.session_state.correct_title = ""
+
+raw_title_query = st.query_params.get("raw_title")
+if raw_title_query:
+    st.session_state.raw_title = raw_title_query
+
+correct_title_query = st.query_params.get("correct_title")
+if correct_title_query:
+    st.session_state.correct_title = correct_title_query
 
 
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
+def render_title(*, conf, index, initial_raw_title, initial_correct_title):
+    with st.container(border=True):
+        with st.form("my_form"):
+            raw_title_text_input = st.text_input("Raw title (required)", value=initial_raw_title, type="default",
+                                                 placeholder="Example.Movie.2020.1080p.BluRay.x264-Example")
 
-st.header(f'GDP in {to_year}', divider='gray')
+            correct_title = st.text_input("Correct title", value=initial_correct_title, type="default",
+                                          placeholder="Example Movie")
+            submit = st.form_submit_button('Rank')
 
-''
+        # if submit:
+        #     st.query_params['raw_title'] = raw_title
+        #     st.query_params['correct_title'] = correct_title
 
-cols = st.columns(4)
+        try:
+            rtn = RTN(settings=settings, ranking_model=DefaultRanking())
+            info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
+            torrent = rtn.rank(raw_title=raw_title_text_input,
+                               correct_title=correct_title, infohash=info_hash, remove_trash=True)
+            st.markdown(f"**Rank:** {torrent.rank}")
+        except Exception as err:
+            st.write(str(err))
 
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
 
-    with col:
-        first_gdp = first_year[gdp_df['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[gdp_df['Country Code'] == country]['GDP'].iat[0] / 1000000000
+for index, section in enumerate(st.session_state.conf['titles']):
+    initial_raw_title = section['raw_title']
+    initial_correct_title = section['correct_title']
 
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
+    render_title(conf=st.session_state.conf, index=index, initial_raw_title=initial_raw_title,
+                 initial_correct_title=initial_correct_title)
