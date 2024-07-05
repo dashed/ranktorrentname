@@ -296,11 +296,17 @@ def render_settings():
             json_string = st.text_area("JSON", "")
             submit = st.form_submit_button('Import')
             if submit:
-                json_import = json.loads(json_string)
-                RivenRankingSettings(**json_import)
-                st.session_state.conf['settings_model'] = json_import
-                save_conf_to_query_params()
-                st.rerun()
+                json_import = None
+                try:
+                    json_import = json.loads(json_string)
+                    RivenRankingSettings(**json_import)
+                except:
+                    st.write(":no_entry_sign: Invalid JSON")
+                if json_import is not None:
+                    st.session_state.conf['settings_model'] = json_import
+                    save_conf_to_query_params()
+                    st.rerun()
+
 
     with st.container(border=True):
         with st.form("render_settings_form", border=False):
