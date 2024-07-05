@@ -208,7 +208,7 @@ def generate_initial_conf():
             "correct_title": ""
         }],
 
-        "remove_trash": False,
+        "remove_trash": True,
 
         # settings model
         "settings_model": {
@@ -242,13 +242,21 @@ def load_conf_from_query_params():
 
 load_conf_from_query_params()
 
-settings = SettingsModel(
-    profile="default",
-    require=["4K", "1080p"],
-    exclude=["/CAM/i", "TS"],
-    preferred=["HDR", "/BluRay/"],
-    custom_ranks=default_custom_ranks()
-)
+
+def get_settings_model():
+    settings_model = st.session_state.conf['settings_model']
+    return SettingsModel(
+        profile=settings_model['profile'],
+        require=settings_model['require'],
+        exclude=settings_model['exclude'],
+        preferred=settings_model['preferred'],
+        custom_ranks=default_custom_ranks()
+    )
+
+
+def remove_none(original_list):
+    return list(filter(lambda x: x, original_list))
+
 
 def render_settings():
     with st.container(border=True):
@@ -256,14 +264,47 @@ def render_settings():
         with st.form("render_settings_form", border=False):
             remove_trash = st.checkbox("Indicate trash titles")
 
+            settings_model = st.session_state.conf['settings_model']
+
+            choices = list(riven_rank_models.keys())
+            choices.sort()
+            index = 0
+            profile = settings_model['profile']
+            if profile in choices:
+                index = choices.index(profile)
+            rank_model_profile = st.selectbox(
+                "Rank Model Profile",
+                options=choices, index=index)
+
+            # "require": ["4K", "1080p"],
+            # "exclude": ["/CAM/i", "TS"],
+            # "preferred": ["HDR", "/BluRay/"],
+
+            data = {"require": settings_model['require'],
+                    "exclude": settings_model['exclude'],
+                    "preferred": settings_model['preferred']}
+
+            st.write('Filters')
+            next_data = st.data_editor(
+                data, num_rows="dynamic", use_container_width=True)
+
             submit = st.form_submit_button('Update Settings')
 
         if submit:
             st.write('submitted')
             st.session_state.conf['remove_trash'] = bool(remove_trash)
+            st.session_state.conf['settings_model'] = {
+                "profile": rank_model_profile or 'default',
+                "require": remove_none(next_data['require']),
+                "exclude": remove_none(next_data['exclude']),
+                "preferred": remove_none(next_data['preferred'])}
+
+            st.code(json.dumps(st.session_state.conf['settings_model']))
             save_conf_to_query_params()
 
+
 render_settings()
+
 
 def render_title(*, conf, index, initial_raw_title, initial_correct_title):
     with st.container(border=True):
@@ -282,7 +323,7 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
 
             correct_title_text_input = st.text_input("Correct title", value=initial_correct_title, type="default",
                                                      placeholder="Example Movie")
-            
+
             submit = st.form_submit_button('Rank')
 
         if submit:
@@ -294,14 +335,20 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
             save_conf_to_query_params()
 
         try:
-            ranking_model = riven_rank_models.get(st.session_state.conf['settings_model']['profile'])
-            rtn = RTN(settings=settings, ranking_model=ranking_model)
+            ranking_model = riven_rank_models.get(
+                st.session_state.conf['settings_model']['profile'])
+
+            rtn = RTN(settings=get_settings_model(),
+                      ranking_model=ranking_model)
             info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
+
             torrent = rtn.rank(raw_title=raw_title_text_input,
-                            correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
+                               correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
+
             st.markdown(f"**Rank:** {torrent.rank}")
         except Exception as err:
             st.write(str(err))
+
 
 for index, section in enumerate(st.session_state.conf['titles']):
     initial_raw_title = section['raw_title']
