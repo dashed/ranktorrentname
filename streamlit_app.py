@@ -312,7 +312,6 @@ def render_settings():
                     if json_import is not None:
                         st.session_state.conf['settings_model'] = json_import
                         save_conf_to_query_params()
-                        st.rerun()
 
     with st.container(border=True):
         with st.form("render_settings_form", border=False):
@@ -427,7 +426,6 @@ def render_settings():
                     "preferred": remove_falsey(next_filters.get('preferred', [])),
                     "custom_ranks": custom_ranks, }
                 save_conf_to_query_params()
-                st.rerun()
 
 
 render_settings()
