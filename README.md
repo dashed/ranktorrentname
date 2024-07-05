@@ -1,6 +1,9 @@
-# :earth_americas: GDP dashboard template
+# :popcorn: riven ranktorrentname
 
-A simple Streamlit app showing the GDP of different countries in the world.
+Test settings for `riven`.
+
+- https://github.com/dreulavelle/rank-torrent-name
+- https://github.com/rivenmedia/riven
 
 [![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://gdp-dashboard-template.streamlit.app/)
 

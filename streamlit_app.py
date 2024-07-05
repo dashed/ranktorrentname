@@ -22,7 +22,11 @@ st.set_page_config(
 '''
 # :popcorn: riven ranktorrentname
 
-https://github.com/dreulavelle/rank-torrent-name
+Test settings for `riven`.
+
+- https://github.com/dreulavelle/rank-torrent-name
+- https://github.com/rivenmedia/riven
+
 '''
 
 # Add some spacing
