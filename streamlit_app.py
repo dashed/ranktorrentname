@@ -1,5 +1,6 @@
 import streamlit as st
 from RTN import RTN
+from RTN.models import BaseRankingModel
 from RTN.models import DefaultRanking
 from RTN.models import SettingsModel, CustomRank
 import json
@@ -24,6 +25,144 @@ https://github.com/dreulavelle/rank-torrent-name
 # Add some spacing
 ''
 ''
+
+# From https://github.com/rivenmedia/riven/blob/0dbc9f70161dc6cd5f219e81a4424b15aa6fbf14/backend/program/settings/versions.py
+
+
+class DefaultRanking(BaseRankingModel):
+    uhd: int = -1000
+    fhd: int = 100
+    hd: int = 50
+    sd: int = -100
+    dolby_video: int = -100
+    aac: int = 70
+    ac3: int = 50
+    remux: int = -1000
+    webdl: int = 90
+    bluray: int = 80
+    dvdrip: int = -100
+    hdtv: int = -100
+
+
+class BestRemuxRanking(BaseRankingModel):
+    uhd: int = 100
+    fhd: int = 60
+    hd: int = 40
+    sd: int = 20
+    dolby_video: int = 100
+    hdr: int = 80
+    hdr10: int = 90
+    dts_x: int = 100
+    dts_hd: int = 80
+    dts_hd_ma: int = 90
+    atmos: int = 90
+    truehd: int = 60
+    aac: int = 30
+    ac3: int = 20
+    remux: int = 150
+    webdl: int = -1000
+
+
+class BestWebRanking(BaseRankingModel):
+    uhd: int = 100
+    fhd: int = 90
+    hd: int = 80
+    sd: int = 20
+    dolby_video: int = 100
+    hdr: int = 80
+    hdr10: int = 90
+    aac: int = 50
+    ac3: int = 40
+    remux: int = -1000
+    webdl: int = 100
+
+
+class BestResolutionRanking(BaseRankingModel):
+    uhd: int = 100
+    fhd: int = 90
+    hd: int = 80
+    sd: int = 70
+    dolby_video: int = 100
+    hdr: int = 80
+    hdr10: int = 90
+    dts_x: int = 100
+    dts_hd: int = 80
+    dts_hd_ma: int = 90
+    atmos: int = 90
+    truehd: int = 60
+    ddplus: int = 90
+    aac: int = 30
+    ac3: int = 20
+    remux: int = 150
+    bluray: int = 120
+    webdl: int = -1000
+
+
+class BestOverallRanking(BaseRankingModel):
+    uhd: int = 100
+    fhd: int = 90
+    hd: int = 80
+    sd: int = 70
+    dolby_video: int = 100
+    hdr: int = 80
+    hdr10: int = 90
+    dts_x: int = 100
+    dts_hd: int = 80
+    dts_hd_ma: int = 90
+    atmos: int = 90
+    truehd: int = 60
+    ddplus: int = 40
+    aac: int = 30
+    ac3: int = 20
+    remux: int = 150
+    bluray: int = 120
+    webdl: int = 90
+
+
+class AnimeRanking(BaseRankingModel):
+    uhd: int = -1000
+    fhd: int = 90
+    hd: int = 80
+    sd: int = 20
+    aac: int = 70
+    ac3: int = 50
+    remux: int = -1000
+    webdl: int = 90
+    bluray: int = 50
+    dubbed: int = 100
+    subbed: int = 100
+
+
+class AllRanking(BaseRankingModel):
+    uhd: int = 2
+    fhd: int = 3
+    hd: int = 1
+    sd: int = 1
+    dolby_video: int = 1
+    hdr: int = 1
+    dts_x: int = 1
+    dts_hd: int = 1
+    dts_hd_ma: int = 1
+    atmos: int = 1
+    truehd: int = 1
+    ddplus: int = 1
+    aac: int = 2
+    ac3: int = 1
+    remux: int = 1
+    webdl: int = 1
+    bluray: int = 1
+
+
+riven_rank_models = {
+    "default":  DefaultRanking(),
+    "custom": BaseRankingModel(),
+    "remux":   BestRemuxRanking(),
+    "web":   BestWebRanking(),
+    "resolution":   BestResolutionRanking(),
+    "overall":   BestOverallRanking(),
+    "anime":   AnimeRanking(),
+    "all":   AllRanking(),
+}
 
 
 def default_custom_ranks():
@@ -85,6 +224,7 @@ def save_conf_to_query_params():
     if 'conf' not in st.session_state:
         return
     st.query_params['conf'] = json.dumps(st.session_state.conf)
+    # st.rerun()
 
 
 def load_conf_from_query_params():
@@ -101,8 +241,6 @@ def load_conf_from_query_params():
 
 
 load_conf_from_query_params()
-# if 'conf' not in st.session_state:
-#     st.session_state['conf'] = conf
 
 settings = SettingsModel(
     profile="default",
@@ -112,24 +250,25 @@ settings = SettingsModel(
     custom_ranks=default_custom_ranks()
 )
 
-if 'raw_title' not in st.session_state or not st.session_state['raw_title']:
-    st.session_state.raw_title = "Example.Movie.2020.1080p.BluRay.x264-Example"
+def render_settings():
+    with st.container(border=True):
+        st.subheader('Settings')
+        with st.form("render_settings_form", border=False):
+            remove_trash = st.checkbox("Indicate trash titles")
 
-if 'correct_title' not in st.session_state:
-    st.session_state.correct_title = ""
+            submit = st.form_submit_button('Update Settings')
 
-raw_title_query = st.query_params.get("raw_title")
-if raw_title_query:
-    st.session_state.raw_title = raw_title_query
+        if submit:
+            st.write('submitted')
+            st.session_state.conf['remove_trash'] = bool(remove_trash)
+            save_conf_to_query_params()
 
-correct_title_query = st.query_params.get("correct_title")
-if correct_title_query:
-    st.session_state.correct_title = correct_title_query
-
+render_settings()
 
 def render_title(*, conf, index, initial_raw_title, initial_correct_title):
     with st.container(border=True):
         unique_key = f"{index}_{initial_raw_title}_{initial_correct_title}"
+        st.write(unique_key)
         if index > 0:
             def delete_current_title():
                 del st.session_state.conf['titles'][index]
@@ -137,15 +276,17 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
             st.button("Remove", on_click=delete_current_title,
                       key=f"render_title_form_{unique_key}_delete")
 
-        with st.form(f"render_title_form_{unique_key}"):
+        with st.form(f"render_title_form_{unique_key}", border=False):
             raw_title_text_input = st.text_input("Raw title (required)", value=initial_raw_title, type="default",
                                                  placeholder="Example.Movie.2020.1080p.BluRay.x264-Example")
 
             correct_title_text_input = st.text_input("Correct title", value=initial_correct_title, type="default",
                                                      placeholder="Example Movie")
+            
             submit = st.form_submit_button('Rank')
 
         if submit:
+            st.write('submitted')
             conf['titles'][index] = {
                 "raw_title": raw_title_text_input,
                 "correct_title": correct_title_text_input
@@ -153,14 +294,14 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
             save_conf_to_query_params()
 
         try:
-            rtn = RTN(settings=settings, ranking_model=DefaultRanking())
+            ranking_model = riven_rank_models.get(st.session_state.conf['settings_model']['profile'])
+            rtn = RTN(settings=settings, ranking_model=ranking_model)
             info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
             torrent = rtn.rank(raw_title=raw_title_text_input,
-                               correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
+                            correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
             st.markdown(f"**Rank:** {torrent.rank}")
         except Exception as err:
             st.write(str(err))
-
 
 for index, section in enumerate(st.session_state.conf['titles']):
     initial_raw_title = section['raw_title']
