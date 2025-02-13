@@ -740,7 +740,7 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 with col2:
                     st.metric("Fetch Status", "✅ Yes" if torrent.fetch else "❌ No")
                 
-                parsed_data = parse(raw_title=raw_title_text_input, remove_trash=False)
+                parsed_data = parse(raw_title=raw_title_text_input)
                 
                 with col3:
                     matches_preferred = calculate_preferred(parsed_data, settings_model) > 0
