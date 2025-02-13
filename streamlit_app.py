@@ -10,11 +10,74 @@ import json
 from pydantic import BaseModel
 from typing import List, Dict
 
-# Set the title and favicon that appear in the Browser's tab bar.
+# Set the page configuration with a modern layout
 st.set_page_config(
-    page_title="riven ranktorrentname",
-    page_icon=':popcorn:',  # This is an emoji shortcode. Could be a URL too.
+    page_title="Riven Torrent Name Ranker",
+    page_icon="🎬",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/dreulavelle/rank-torrent-name',
+        'Report a bug': 'https://github.com/dreulavelle/rank-torrent-name/issues',
+        'About': '''
+        # Riven Torrent Name Ranker
+        
+        A tool to test and configure ranking settings for the Riven media manager.
+        
+        - [rank-torrent-name](https://github.com/dreulavelle/rank-torrent-name)
+        - [riven](https://github.com/rivenmedia/riven)
+        '''
+    }
 )
+
+# Add custom CSS for better styling
+st.markdown("""
+    <style>
+    .stApp {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    .main > div {
+        padding: 2rem;
+    }
+    .stButton>button {
+        width: 100%;
+    }
+    .custom-container {
+        background-color: #f0f2f6;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# Sidebar navigation and info
+with st.sidebar:
+    st.image("https://raw.githubusercontent.com/rivenmedia/riven/main/docs/logo.png", width=200)
+    st.title("Navigation")
+    
+    page = st.radio(
+        "Go to",
+        ["Settings", "Test Titles", "Preset Profiles"],
+        index=0
+    )
+    
+    st.markdown("---")
+    st.markdown("""
+    ### Quick Links
+    - [Documentation](https://github.com/dreulavelle/rank-torrent-name#readme)
+    - [Report Issues](https://github.com/dreulavelle/rank-torrent-name/issues)
+    - [Riven Media](https://github.com/rivenmedia/riven)
+    """)
+    
+    st.markdown("---")
+    st.markdown("### About")
+    st.markdown("""
+    This tool helps you test and configure ranking settings for the Riven media manager.
+    Configure your preferences and test different torrent names to see how they rank.
+    """)
 
 # -----------------------------------------------------------------------------
 # Draw the actual page
@@ -289,169 +352,226 @@ class RivenRankingSettings(BaseModel):
 
 
 def render_settings():
-    st.header('Settings')
+    st.header('🛠️ Settings Configuration')
+    st.markdown("""
+    Configure your ranking preferences and filters. These settings will be used to evaluate and rank torrent names.
+    """)
 
-    with st.expander("Export Settings"):
-        st.write("Copy to your riven settings under `ranking`.")
-        st.json(st.session_state.conf['settings_model'])
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        with st.expander("⚙️ Core Settings", expanded=True):
+            with st.form("render_settings_form", border=False):
+                settings_model = st.session_state.conf['settings_model']
 
-    with st.expander("Import Settings"):
-        st.write("Copy and paste your riven settings.")
+                remove_trash = st.checkbox(
+                    "🗑️ Indicate trash titles",
+                    value=bool(st.session_state.conf['remove_trash']),
+                    help="Checks if the title contains any unwanted patterns.")
 
-        with st.form("settings_import", border=False):
-            json_string = st.text_area("JSON", "")
-            submit = st.form_submit_button('Import')
-            if submit:
-                json_import = None
-                try:
-                    json_import = json.loads(json_string)
-                    if 'ranking' in json_import:
-                        json_import = json_import['ranking']
-                    RivenRankingSettings(**json_import)
-                except:
-                    st.write(":no_entry_sign: Invalid JSON")
-                else:
-                    if json_import is not None:
-                        st.session_state.conf['settings_model'] = json_import
-                        save_conf_to_query_params()
-                        st.write("Imported JSON")
+                choices = list(riven_rank_models.keys())
+                choices.sort()
+                index = 0
+                profile = settings_model['profile']
+                if profile in choices:
+                    index = choices.index(profile)
+                rank_model_profile = st.selectbox(
+                    "📊 Rank Model Profile",
+                    options=choices, 
+                    index=index,
+                    help="Select a predefined ranking profile that best matches your preferences.")
 
-    with st.container(border=True):
-        with st.form("render_settings_form", border=False):
-            settings_model = st.session_state.conf['settings_model']
+                st.markdown("### 🎯 Filters")
+                st.markdown("""
+                Configure pattern matching filters:
+                - **Require**: Patterns that must be present
+                - **Exclude**: Patterns that must not be present
+                - **Preferred**: Patterns that give a rank boost if present
+                """)
 
-            remove_trash = st.checkbox(
-                "Indicate trash titles",
-                value=bool(st.session_state.conf['remove_trash']),
-                help="Checks if the title contains any unwanted patterns.")
+                filters = {"require": settings_model.get('require', []) or [''],
+                           "exclude": settings_model.get('exclude', []) or [''],
+                           "preferred": settings_model.get('preferred', []) or ['']}
 
-            choices = list(riven_rank_models.keys())
-            choices.sort()
-            index = 0
-            profile = settings_model['profile']
-            if profile in choices:
-                index = choices.index(profile)
-            rank_model_profile = st.selectbox(
-                "Rank Model Profile",
-                options=choices, index=index)
+                def transform_filters_dict(input_dict):
+                    result = []
+                    max_length = max(len(input_dict.get('require', [])),
+                                     len(input_dict.get('exclude', [])),
+                                     len(input_dict.get('preferred', [])))
 
-            # "require": ["4K", "1080p"],
-            # "exclude": ["/CAM/i", "TS"],
-            # "preferred": ["HDR", "/BluRay/"],
-
-            filters = {"require": settings_model.get('require', []) or [''],
-                       "exclude": settings_model.get('exclude', []) or [''],
-                       "preferred": settings_model.get('preferred', []) or ['']}
-
-            st.write('#### Filters')
-
-            def transform_filters_dict(input_dict):
-                result = []
-                max_length = max(len(input_dict.get('require', [])),
-                                 len(input_dict.get('exclude', [])),
-                                 len(input_dict.get('preferred', [])))
-
-                for i in range(max_length):
-                    new_dict = {
-                        "require": input_dict.get('require', [])[i] if i < len(input_dict.get('require', [])) else None,
-                        "exclude": input_dict.get('exclude', [])[i] if i < len(input_dict.get('exclude', [])) else None,
-                        "preferred": input_dict.get('preferred', [])[i] if i < len(input_dict.get('preferred', [])) else None
-                    }
-                    result.append(new_dict)
-
-                return result
-
-            next_filters = st.data_editor(
-                transform_filters_dict(filters), num_rows="dynamic", use_container_width=True,
-                column_config={
-                    "require": st.column_config.TextColumn(),
-                    "exclude": st.column_config.TextColumn(),
-                    "preferred": st.column_config.TextColumn(),
-                }
-            )
-
-            st.write('#### Custom Ranks')
-            st.write("**NOTE:** When `enable` is `True` then we use the custom `rank` instead of the rank model profile's preset `rank`. Otherwise, we use the rank model profile's preset `rank`.")
-            custom_ranks = settings_model['custom_ranks']
-
-            serialized_custom_ranks = []
-            for name, custom_rank in custom_ranks.items():
-                serialized_custom_ranks.append({
-                    "type": name,
-                    "fetch": bool(custom_rank['fetch']),
-                    "rank": custom_rank['rank'],
-                    "enable": bool(custom_rank['enable']),
-                })
-
-            next_custom_ranks = st.data_editor(
-                serialized_custom_ranks, num_rows="fixed", use_container_width=True,
-                disabled=["type"],
-                column_config={
-                    "fetch": st.column_config.CheckboxColumn(),
-                    "rank": st.column_config.NumberColumn(),
-                    "enable": st.column_config.CheckboxColumn(),
-                }
-            )
-
-            submit = st.form_submit_button('Update Settings')
-
-            if submit:
-                custom_ranks = {}
-                for custom_rank in next_custom_ranks:
-                    type = custom_rank['type']
-                    custom_ranks[type] = {
-                        "fetch": bool(custom_rank['fetch']),
-                        "rank": int(custom_rank['rank']),
-                        "enable": bool(custom_rank['enable']),
-                    }
-
-                st.session_state.conf['remove_trash'] = bool(remove_trash)
-
-                def reverse_filters_transform(input_list):
-                    result = {"require": [], "exclude": [], "preferred": []}
-
-                    for item in input_list:
-                        for key in ["require", "exclude", "preferred"]:
-                            if item[key] is not None:
-                                result[key].append(item[key])
-
-                    # Remove empty lists
-                    result = {k: v for k, v in result.items() if v}
+                    for i in range(max_length):
+                        new_dict = {
+                            "require": input_dict.get('require', [])[i] if i < len(input_dict.get('require', [])) else None,
+                            "exclude": input_dict.get('exclude', [])[i] if i < len(input_dict.get('exclude', [])) else None,
+                            "preferred": input_dict.get('preferred', [])[i] if i < len(input_dict.get('preferred', [])) else None
+                        }
+                        result.append(new_dict)
 
                     return result
 
-                next_filters = reverse_filters_transform(next_filters)
+                next_filters = st.data_editor(
+                    transform_filters_dict(filters), 
+                    num_rows="dynamic", 
+                    use_container_width=True,
+                    column_config={
+                        "require": st.column_config.TextColumn(
+                            "Required Patterns",
+                            help="Patterns that must be present",
+                            width="medium"
+                        ),
+                        "exclude": st.column_config.TextColumn(
+                            "Excluded Patterns",
+                            help="Patterns that must not be present",
+                            width="medium"
+                        ),
+                        "preferred": st.column_config.TextColumn(
+                            "Preferred Patterns",
+                            help="Patterns that give a rank boost",
+                            width="medium"
+                        ),
+                    }
+                )
 
-                st.session_state.conf['settings_model'] = {
-                    "profile": rank_model_profile or 'default',
-                    "require": remove_falsey(next_filters.get('require', [])),
-                    "exclude": remove_falsey(next_filters.get('exclude', [])),
-                    "preferred": remove_falsey(next_filters.get('preferred', [])),
-                    "custom_ranks": custom_ranks, }
-                save_conf_to_query_params()
+                st.markdown("### ⚖️ Custom Ranks")
+                st.markdown("""
+                Fine-tune ranking values for specific attributes. Enable custom ranks to override the profile's default values.
+                """)
+                
+                custom_ranks = settings_model['custom_ranks']
+                serialized_custom_ranks = []
+                for name, custom_rank in custom_ranks.items():
+                    serialized_custom_ranks.append({
+                        "type": name,
+                        "fetch": bool(custom_rank['fetch']),
+                        "rank": custom_rank['rank'],
+                        "enable": bool(custom_rank['enable']),
+                    })
 
+                next_custom_ranks = st.data_editor(
+                    serialized_custom_ranks,
+                    num_rows="fixed",
+                    use_container_width=True,
+                    disabled=["type"],
+                    column_config={
+                        "type": st.column_config.TextColumn(
+                            "Attribute",
+                            help="The media attribute to rank"
+                        ),
+                        "fetch": st.column_config.CheckboxColumn(
+                            "Fetch",
+                            help="Whether to look for this attribute"
+                        ),
+                        "rank": st.column_config.NumberColumn(
+                            "Rank Value",
+                            help="The ranking score for this attribute"
+                        ),
+                        "enable": st.column_config.CheckboxColumn(
+                            "Override",
+                            help="Enable to use custom rank instead of profile default"
+                        ),
+                    }
+                )
 
-render_settings()
+                submit = st.form_submit_button('💾 Save Settings')
+
+                if submit:
+                    custom_ranks = {}
+                    for custom_rank in next_custom_ranks:
+                        type = custom_rank['type']
+                        custom_ranks[type] = {
+                            "fetch": bool(custom_rank['fetch']),
+                            "rank": int(custom_rank['rank']),
+                            "enable": bool(custom_rank['enable']),
+                        }
+
+                    st.session_state.conf['remove_trash'] = bool(remove_trash)
+
+                    def reverse_filters_transform(input_list):
+                        result = {"require": [], "exclude": [], "preferred": []}
+
+                        for item in input_list:
+                            for key in ["require", "exclude", "preferred"]:
+                                if item[key] is not None:
+                                    result[key].append(item[key])
+
+                        # Remove empty lists
+                        result = {k: v for k, v in result.items() if v}
+
+                        return result
+
+                    next_filters = reverse_filters_transform(next_filters)
+
+                    st.session_state.conf['settings_model'] = {
+                        "profile": rank_model_profile or 'default',
+                        "require": remove_falsey(next_filters.get('require', [])),
+                        "exclude": remove_falsey(next_filters.get('exclude', [])),
+                        "preferred": remove_falsey(next_filters.get('preferred', [])),
+                        "custom_ranks": custom_ranks,
+                    }
+                    save_conf_to_query_params()
+                    st.success("✅ Settings saved successfully!")
+
+    with col2:
+        with st.expander("📤 Export Settings", expanded=True):
+            st.markdown("Copy these settings to your Riven configuration under the `ranking` section:")
+            st.json(st.session_state.conf['settings_model'])
+            
+        with st.expander("📥 Import Settings"):
+            st.markdown("Paste your Riven ranking settings here:")
+            with st.form("settings_import", border=False):
+                json_string = st.text_area("JSON Configuration")
+                submit = st.form_submit_button('📥 Import')
+                if submit:
+                    json_import = None
+                    try:
+                        json_import = json.loads(json_string)
+                        if 'ranking' in json_import:
+                            json_import = json_import['ranking']
+                        RivenRankingSettings(**json_import)
+                    except Exception as e:
+                        st.error(f"❌ Invalid configuration: {str(e)}")
+                    else:
+                        if json_import is not None:
+                            st.session_state.conf['settings_model'] = json_import
+                            save_conf_to_query_params()
+                            st.success("✅ Settings imported successfully!")
 
 
 def render_title(*, conf, index, initial_raw_title, initial_correct_title):
     with st.container(border=True):
         unique_key = f"{index}_{initial_raw_title}_{initial_correct_title}"
-        if index > 0:
-            def delete_current_title():
-                del st.session_state.conf['titles'][index]
-                save_conf_to_query_params()
-            st.button("Remove", on_click=delete_current_title,
-                      key=f"render_title_form_{unique_key}_delete")
+        
+        col1, col2 = st.columns([5, 1])
+        with col1:
+            st.markdown(f"### 🎬 Test Case #{index + 1}")
+        with col2:
+            if index > 0:
+                def delete_current_title():
+                    del st.session_state.conf['titles'][index]
+                    save_conf_to_query_params()
+                st.button("🗑️ Remove", on_click=delete_current_title,
+                          key=f"render_title_form_{unique_key}_delete")
 
         with st.form(f"render_title_form_{unique_key}", border=False):
-            raw_title_text_input = st.text_input("Raw title (required)", value=initial_raw_title, type="default",
-                                                 placeholder="Example.Movie.2020.1080p.BluRay.x264-Example")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                raw_title_text_input = st.text_input(
+                    "📝 Raw title (required)", 
+                    value=initial_raw_title,
+                    help="Enter the original torrent name to test",
+                    placeholder="Example.Movie.2020.1080p.BluRay.x264-Example"
+                )
 
-            correct_title_text_input = st.text_input("Correct title", value=initial_correct_title, type="default",
-                                                     placeholder="Example Movie")
+            with col2:
+                correct_title_text_input = st.text_input(
+                    "✨ Correct title",
+                    value=initial_correct_title,
+                    help="Enter the expected clean title (optional)",
+                    placeholder="Example Movie"
+                )
 
-            submit = st.form_submit_button('Rank')
+            submit = st.form_submit_button('🔍 Analyze')
 
             if submit:
                 conf['titles'][index] = {
@@ -460,68 +580,101 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 }
                 save_conf_to_query_params()
 
-        try:
-            ranking_model = riven_rank_models.get(
-                st.session_state.conf['settings_model']['profile'])
+        if raw_title_text_input:
+            try:
+                ranking_model = riven_rank_models.get(
+                    st.session_state.conf['settings_model']['profile'])
 
-            settings_model = get_settings_model(
-                st.session_state.conf['settings_model'])
-            rtn = RTN(settings=settings_model,
-                      ranking_model=ranking_model)
-            info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
+                settings_model = get_settings_model(
+                    st.session_state.conf['settings_model'])
+                rtn = RTN(settings=settings_model,
+                          ranking_model=ranking_model)
+                info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
 
-            torrent = rtn.rank(raw_title=raw_title_text_input,
-                               correct_title=correct_title_text_input, infohash=info_hash, remove_trash=conf['remove_trash'])
+                torrent = rtn.rank(raw_title=raw_title_text_input,
+                                   correct_title=correct_title_text_input, 
+                                   infohash=info_hash, 
+                                   remove_trash=conf['remove_trash'])
 
-            st.write(f"**Rank:** {torrent.rank}")
-            st.write(f"**Fetch:** {torrent.fetch} {emoji_bool(torrent.fetch)}")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Rank Score", f"{torrent.rank:,}")
+                
+                with col2:
+                    st.metric("Fetch Status", "✅ Yes" if torrent.fetch else "❌ No")
+                
+                parsed_data = parse(raw_title=raw_title_text_input, remove_trash=False)
+                
+                with col3:
+                    matches_preferred = calculate_preferred(parsed_data, settings_model) > 0
+                    st.metric("Preferred Boost", "✅ Yes" if matches_preferred else "❌ No")
 
-            parsed_data = parse(
-                raw_title=raw_title_text_input, remove_trash=False)
+                with st.expander("🔍 Detailed Analysis"):
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        matches_required = check_required(parsed_data, settings_model)
+                        st.markdown(
+                            f"**Required Patterns:** {emoji_bool(matches_required)}",
+                            help="Check if the title meets the required patterns"
+                        )
 
-            matches_required = check_required(parsed_data, settings_model)
-            st.markdown(
-                f"**Matches `required`:** {matches_required} {emoji_bool(matches_required)}", help="Check if the title meets the `required` patterns.")
+                        matches_exclude = check_exclude(parsed_data, settings_model)
+                        st.markdown(
+                            f"**Excluded Patterns:** {emoji_bool(not matches_exclude)}",
+                            help="Check if the title contains excluded patterns"
+                        )
+                    
+                    with col2:
+                        st.markdown("**Parsed Attributes:**")
+                        parsed_dict = dict(parsed_data)
+                        for key, value in parsed_dict.items():
+                            if value:
+                                st.markdown(f"- `{key}`: {value}")
 
-            matches_exclude = check_exclude(parsed_data, settings_model)
-            st.markdown(
-                f"**Matches `exclude`:** {matches_exclude} {emoji_bool(matches_exclude)}", help="Check if the title contains `excluded` patterns.")
-
-            matches_preferred = calculate_preferred(
-                parsed_data, settings_model) > 0
-            st.markdown(
-                f"**Matches `preferred`:** {matches_preferred} {emoji_bool(matches_preferred)}",
-                help="Any matches to `preferred` gets a rank boost of 5000.")
-
-            with st.expander("Debug"):
-                parsed_data = dict(parsed_data)
-                st.subheader('ParsedData')
-                st.write(parsed_data)
-        except Exception as err:
-            st.write(str(err))
-
-
-st.header('Test Your Titles')
-for index, section in enumerate(st.session_state.conf['titles']):
-    initial_raw_title = section['raw_title']
-    initial_correct_title = section['correct_title']
-
-    render_title(conf=st.session_state.conf, index=index, initial_raw_title=initial_raw_title,
-                 initial_correct_title=initial_correct_title)
-
-
-def add_new_title():
-    st.session_state.conf['titles'].append({
-        "raw_title": "",
-        "correct_title": ""
-    })
-    save_conf_to_query_params()
+            except Exception as err:
+                st.error(f"❌ Error: {str(err)}")
 
 
-st.button("Add", on_click=add_new_title)
-
-with st.expander("Preset profiles"):
-    st.write("Showcase of the ranking numbers for each preset profile.")
+def render_preset_profiles():
+    st.header("📚 Preset Ranking Profiles")
+    st.markdown("""
+    These are the built-in ranking profiles that you can use as a starting point.
+    Each profile has different ranking weights optimized for specific use cases.
+    """)
+    
     for name, rank_model in riven_rank_models.items():
-        st.header(name)
-        st.write(dict(rank_model))
+        with st.expander(f"📋 {name.title()} Profile"):
+            st.json(dict(rank_model))
+
+
+# Main content based on navigation
+if page == "Settings":
+    render_settings()
+elif page == "Test Titles":
+    st.header("🧪 Test Your Titles")
+    st.markdown("""
+    Test how your titles rank with the current settings. Add multiple test cases to compare results.
+    """)
+    
+    for index, section in enumerate(st.session_state.conf['titles']):
+        initial_raw_title = section['raw_title']
+        initial_correct_title = section['correct_title']
+
+        render_title(
+            conf=st.session_state.conf,
+            index=index,
+            initial_raw_title=initial_raw_title,
+            initial_correct_title=initial_correct_title
+        )
+
+    if st.button("➕ Add Test Case"):
+        st.session_state.conf['titles'].append({
+            "raw_title": "",
+            "correct_title": ""
+        })
+        save_conf_to_query_params()
+        
+else:  # Preset Profiles
+    render_preset_profiles()
