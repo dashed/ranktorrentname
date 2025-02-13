@@ -599,12 +599,18 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             st.markdown("#### Required Patterns")
             st.markdown("Patterns that must be present in the torrent name")
             current_required = settings_model.get('require', [])
+            delete_required = "None"  # Initialize with default value
             
             # Display current patterns
             if current_required:
                 st.markdown("Current patterns:")
                 for i, pattern in enumerate(current_required):
                     st.code(f"{i+1}. {pattern}", language="")
+                delete_required = st.selectbox(
+                    "Select pattern to delete",
+                    options=["None"] + [str(i+1) for i in range(len(current_required))],
+                    key="delete_required"
+                )
             else:
                 st.info("No required patterns set")
             
@@ -615,12 +621,6 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                 height=100,
                 help="Enter one pattern per line. Use /pattern/ for case-sensitive matching."
             )
-            if current_required:
-                delete_required = st.selectbox(
-                    "Select pattern to delete",
-                    options=["None"] + [str(i+1) for i in range(len(current_required))],
-                    key="delete_required"
-                )
             
             st.markdown("---")
             
@@ -628,12 +628,18 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             st.markdown("#### Excluded Patterns")
             st.markdown("Patterns that will cause a torrent to be excluded if matched")
             current_excluded = settings_model.get('exclude', [])
+            delete_excluded = "None"  # Initialize with default value
             
             # Display current patterns
             if current_excluded:
                 st.markdown("Current patterns:")
                 for i, pattern in enumerate(current_excluded):
                     st.code(f"{i+1}. {pattern}", language="")
+                delete_excluded = st.selectbox(
+                    "Select pattern to delete",
+                    options=["None"] + [str(i+1) for i in range(len(current_excluded))],
+                    key="delete_excluded"
+                )
             else:
                 st.info("No excluded patterns set")
             
@@ -644,12 +650,6 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                 height=100,
                 help="Enter one pattern per line. Use /pattern/ for case-sensitive matching."
             )
-            if current_excluded:
-                delete_excluded = st.selectbox(
-                    "Select pattern to delete",
-                    options=["None"] + [str(i+1) for i in range(len(current_excluded))],
-                    key="delete_excluded"
-                )
             
             st.markdown("---")
             
@@ -657,12 +657,18 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             st.markdown("#### Preferred Patterns")
             st.markdown("Patterns that will give a rank boost to matching torrents")
             current_preferred = settings_model.get('preferred', [])
+            delete_preferred = "None"  # Initialize with default value
             
             # Display current patterns
             if current_preferred:
                 st.markdown("Current patterns:")
                 for i, pattern in enumerate(current_preferred):
                     st.code(f"{i+1}. {pattern}", language="")
+                delete_preferred = st.selectbox(
+                    "Select pattern to delete",
+                    options=["None"] + [str(i+1) for i in range(len(current_preferred))],
+                    key="delete_preferred"
+                )
             else:
                 st.info("No preferred patterns set")
             
@@ -673,12 +679,6 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                 height=100,
                 help="Enter one pattern per line. Use /pattern/ for case-sensitive matching."
             )
-            if current_preferred:
-                delete_preferred = st.selectbox(
-                    "Select pattern to delete",
-                    options=["None"] + [str(i+1) for i in range(len(current_preferred))],
-                    key="delete_preferred"
-                )
 
             # Common patterns suggestions
             with st.expander("📚 Common Pattern Examples"):
