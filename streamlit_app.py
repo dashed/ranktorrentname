@@ -756,11 +756,16 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                             help="Check if the title meets the required patterns"
                         )
 
-                        matches_exclude = check_exclude(parsed_data, settings_model)
+                        failed_keys = []
+                        matches_exclude = check_exclude(parsed_data, settings_model, failed_keys)
                         st.markdown(
                             f"**Excluded Patterns:** {emoji_bool(not matches_exclude)}",
                             help="Check if the title contains excluded patterns"
                         )
+                        if failed_keys:
+                            st.markdown("**Failed Exclude Patterns:**")
+                            for key in failed_keys:
+                                st.markdown(f"- `{key}`")
                     
                     with col2:
                         st.markdown("**Parsed Attributes:**")
