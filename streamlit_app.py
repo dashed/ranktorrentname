@@ -3,9 +3,10 @@ from RTN import RTN
 from RTN.fetch import check_required, check_exclude
 from RTN.parser import parse
 from RTN.ranker import calculate_preferred
-from RTN.models import BaseRankingModel
-from RTN.models import DefaultRanking
-from RTN.models import SettingsModel, CustomRank
+from RTN.models import (
+    BaseRankingModel, DefaultRanking, SettingsModel, CustomRank,
+    ResolutionConfig, OptionsConfig, LanguagesConfig, CustomRanksConfig
+)
 import json
 from pydantic import BaseModel
 from typing import List, Dict
@@ -55,6 +56,12 @@ st.markdown("""
         border-radius: 0.5rem;
         padding: 1rem;
         margin: 1rem 0;
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2rem;
+    }
+    .stTabs [data-baseweb="tab"] {
+        height: 4rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -252,49 +259,8 @@ def generate_initial_conf():
             "raw_title": "Example.Movie.2020.1080p.BluRay.x264-Example",
             "correct_title": ""
         }],
-
         "remove_trash": True,
-
-        # settings model
-        "settings_model": {
-            "profile": "default",
-            "require": [],
-            "exclude": [],
-            "preferred": [],
-            "custom_ranks": {
-                "uhd": {"fetch": False, "rank": 120, "enable": False},
-                "fhd": {"fetch": True, "rank": 100, "enable": False},
-                "hd": {"fetch": True, "rank": 80, "enable": False},
-                "sd": {"fetch": False, "rank": -120, "enable": False},
-                "bluray": {"fetch": True, "rank": 80, "enable": False},
-                "hdr": {"fetch": False, "rank": 80, "enable": False},
-                "hdr10": {"fetch": False, "rank": 90, "enable": False},
-                "dolby_video": {"fetch": False, "rank": -100, "enable": False},
-                "dts_x": {"fetch": False, "rank": 0, "enable": False},
-                "dts_hd": {"fetch": False, "rank": 0, "enable": False},
-                "dts_hd_ma": {"fetch": False, "rank": 0, "enable": False},
-                "atmos": {"fetch": False, "rank": 0, "enable": False},
-                "truehd": {"fetch": False, "rank": 0, "enable": False},
-                "ddplus": {"fetch": False, "rank": 0, "enable": False},
-                "aac": {"fetch": True, "rank": 70, "enable": False},
-                "ac3": {"fetch": True, "rank": 50, "enable": False},
-                "remux": {"fetch": False, "rank": -1000, "enable": False},
-                "webdl": {"fetch": True, "rank": 90, "enable": False},
-                "repack": {"fetch": True, "rank": 5, "enable": False},
-                "proper": {"fetch": True, "rank": 4, "enable": False},
-                "dubbed": {"fetch": True, "rank": 3, "enable": False},
-                "subbed": {"fetch": True, "rank": 3, "enable": False},
-                "av1": {"fetch": False, "rank": 0, "enable": False},
-                "h264": {"fetch": True, "rank": 0, "enable": False},
-                "h265": {"fetch": True, "rank": 0, "enable": False},
-                "hevc": {"fetch": True, "rank": 0, "enable": False},
-                "avc": {"fetch": True, "rank": 0, "enable": False},
-                "dvdrip": {"fetch": True, "rank": -100, "enable": False},
-                "bdrip": {"fetch": True, "rank": 5, "enable": False},
-                "brrip": {"fetch": True, "rank": 0, "enable": False},
-                "hdtv": {"fetch": True, "rank": -100, "enable": False},
-            }
-        }
+        "settings_model": SettingsModel().model_dump()
     }
 
 
@@ -367,9 +333,17 @@ def render_settings():
     Configure your ranking preferences and filters. These settings will be used to evaluate and rank torrent names.
     """)
 
-    # Core Settings
-    with st.expander("⚙️ Core Settings", expanded=True):
-        with st.form("render_settings_form", border=False):
+    settings_tabs = st.tabs([
+        "⚙️ Core Settings",
+        "🎯 Filters & Patterns",
+        "🌍 Languages",
+        "📺 Resolutions",
+        "⚡ Options",
+        "⚖️ Custom Ranks"
+    ])
+
+    with settings_tabs[0]:
+        with st.form("core_settings_form"):
             settings_model = st.session_state.conf['settings_model']
 
             remove_trash = st.checkbox(
@@ -377,206 +351,293 @@ def render_settings():
                 value=bool(st.session_state.conf['remove_trash']),
                 help="Checks if the title contains any unwanted patterns.")
 
-            choices = list(riven_rank_models.keys())
-            choices.sort()
-            index = 0
-            profile = settings_model['profile']
-            if profile in choices:
-                index = choices.index(profile)
+            choices = ["default", "best", "custom"]
+            profile = settings_model.get('profile', 'default')
             rank_model_profile = st.selectbox(
                 "📊 Rank Model Profile",
                 options=choices, 
-                index=index,
+                index=choices.index(profile),
                 help="Select a predefined ranking profile that best matches your preferences.")
 
-            st.markdown("### 🎯 Filters")
-            st.markdown("""
-            Configure pattern matching filters:
-            - **Require**: Patterns that must be present
-            - **Exclude**: Patterns that must not be present
-            - **Preferred**: Patterns that give a rank boost if present
-            """)
-
-            filters = {"require": settings_model.get('require', []) or [''],
-                       "exclude": settings_model.get('exclude', []) or [''],
-                       "preferred": settings_model.get('preferred', []) or ['']}
-
-            def transform_filters_dict(input_dict):
-                result = []
-                max_length = max(len(input_dict.get('require', [])),
-                                 len(input_dict.get('exclude', [])),
-                                 len(input_dict.get('preferred', [])))
-
-                for i in range(max_length):
-                    new_dict = {
-                        "require": input_dict.get('require', [])[i] if i < len(input_dict.get('require', [])) else None,
-                        "exclude": input_dict.get('exclude', [])[i] if i < len(input_dict.get('exclude', [])) else None,
-                        "preferred": input_dict.get('preferred', [])[i] if i < len(input_dict.get('preferred', [])) else None
-                    }
-                    result.append(new_dict)
-
-                return result
-
-            next_filters = st.data_editor(
-                transform_filters_dict(filters), 
-                num_rows="dynamic", 
-                use_container_width=True,
-                column_config={
-                    "require": st.column_config.TextColumn(
-                        "Required Patterns",
-                        help="Patterns that must be present",
-                        width="medium"
-                    ),
-                    "exclude": st.column_config.TextColumn(
-                        "Excluded Patterns",
-                        help="Patterns that must not be present",
-                        width="medium"
-                    ),
-                    "preferred": st.column_config.TextColumn(
-                        "Preferred Patterns",
-                        help="Patterns that give a rank boost",
-                        width="medium"
-                    ),
-                }
-            )
-
-            st.markdown("### ⚖️ Custom Ranks")
-            st.markdown("""
-            Fine-tune ranking values for specific attributes. Enable custom ranks to override the profile's default values.
-            """)
-            
-            custom_ranks = settings_model['custom_ranks']
-            serialized_custom_ranks = []
-            for name, custom_rank in custom_ranks.items():
-                serialized_custom_ranks.append({
-                    "type": name,
-                    "fetch": bool(custom_rank['fetch']),
-                    "rank": custom_rank['rank'],
-                    "enable": bool(custom_rank['enable']),
-                })
-
-            next_custom_ranks = st.data_editor(
-                serialized_custom_ranks,
-                num_rows="fixed",
-                use_container_width=True,
-                disabled=["type"],
-                column_config={
-                    "type": st.column_config.TextColumn(
-                        "Attribute",
-                        help="The media attribute to rank"
-                    ),
-                    "fetch": st.column_config.CheckboxColumn(
-                        "Fetch",
-                        help="Whether to look for this attribute"
-                    ),
-                    "rank": st.column_config.NumberColumn(
-                        "Rank Value",
-                        help="The ranking score for this attribute"
-                    ),
-                    "enable": st.column_config.CheckboxColumn(
-                        "Override",
-                        help="Enable to use custom rank instead of profile default"
-                    ),
-                }
-            )
-
-            submit = st.form_submit_button('💾 Save Settings')
-
+            submit = st.form_submit_button('💾 Save Core Settings')
             if submit:
-                custom_ranks = {}
-                for custom_rank in next_custom_ranks:
-                    type = custom_rank['type']
-                    custom_ranks[type] = {
-                        "fetch": bool(custom_rank['fetch']),
-                        "rank": int(custom_rank['rank']),
-                        "enable": bool(custom_rank['enable']),
-                    }
-
                 st.session_state.conf['remove_trash'] = bool(remove_trash)
+                settings_model['profile'] = rank_model_profile
+                save_conf_to_query_params()
+                st.success("✅ Core settings saved!")
 
-                def reverse_filters_transform(input_list):
-                    result = {"require": [], "exclude": [], "preferred": []}
+    with settings_tabs[1]:
+        with st.form("filters_form"):
+            st.markdown("""
+            ### Pattern Matching Filters
+            Configure regex patterns for filtering torrents. Patterns can be:
+            - Regular expressions (case-insensitive by default)
+            - Case-sensitive patterns (enclosed in /pattern/)
+            """)
 
-                    for item in input_list:
-                        for key in ["require", "exclude", "preferred"]:
-                            if item[key] is not None:
-                                result[key].append(item[key])
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("#### Required Patterns")
+                st.markdown("Patterns that must be present")
+                required_patterns = st.text_area(
+                    "One pattern per line",
+                    value="\n".join(settings_model.get('require', [])),
+                    height=200,
+                    key="required_patterns"
+                )
 
-                    # Remove empty lists
-                    result = {k: v for k, v in result.items() if v}
+            with col2:
+                st.markdown("#### Excluded Patterns")
+                st.markdown("Patterns that must not be present")
+                excluded_patterns = st.text_area(
+                    "One pattern per line",
+                    value="\n".join(settings_model.get('exclude', [])),
+                    height=200,
+                    key="excluded_patterns"
+                )
 
-                    return result
+            with col3:
+                st.markdown("#### Preferred Patterns")
+                st.markdown("Patterns that give a rank boost")
+                preferred_patterns = st.text_area(
+                    "One pattern per line",
+                    value="\n".join(settings_model.get('preferred', [])),
+                    height=200,
+                    key="preferred_patterns"
+                )
 
-                next_filters = reverse_filters_transform(next_filters)
+            submit = st.form_submit_button('💾 Save Filters')
+            if submit:
+                settings_model['require'] = [p for p in required_patterns.split('\n') if p.strip()]
+                settings_model['exclude'] = [p for p in excluded_patterns.split('\n') if p.strip()]
+                settings_model['preferred'] = [p for p in preferred_patterns.split('\n') if p.strip()]
+                save_conf_to_query_params()
+                st.success("✅ Filters saved!")
 
-                st.session_state.conf['settings_model'] = {
-                    "profile": rank_model_profile or 'default',
-                    "require": remove_falsey(next_filters.get('require', [])),
-                    "exclude": remove_falsey(next_filters.get('exclude', [])),
-                    "preferred": remove_falsey(next_filters.get('preferred', [])),
-                    "custom_ranks": custom_ranks,
+    with settings_tabs[2]:
+        with st.form("languages_form"):
+            st.markdown("### Language Settings")
+            languages_config = settings_model.get('languages', {})
+            
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.markdown("#### Required Languages")
+                required_langs = st.text_area(
+                    "One language code per line",
+                    value="\n".join(languages_config.get('required', [])),
+                    height=200,
+                    help="Language codes that must be present (e.g., en, es, fr)"
+                )
+
+            with col2:
+                st.markdown("#### Excluded Languages")
+                excluded_langs = st.text_area(
+                    "One language code per line",
+                    value="\n".join(languages_config.get('exclude', [])),
+                    height=200,
+                    help="Language codes to exclude"
+                )
+
+            with col3:
+                st.markdown("#### Preferred Languages")
+                preferred_langs = st.text_area(
+                    "One language code per line",
+                    value="\n".join(languages_config.get('preferred', [])),
+                    height=200,
+                    help="Language codes that get a rank boost"
+                )
+
+            submit = st.form_submit_button('💾 Save Language Settings')
+            if submit:
+                settings_model['languages'] = {
+                    'required': [l for l in required_langs.split('\n') if l.strip()],
+                    'exclude': [l for l in excluded_langs.split('\n') if l.strip()],
+                    'preferred': [l for l in preferred_langs.split('\n') if l.strip()]
                 }
                 save_conf_to_query_params()
-                st.success("✅ Settings saved successfully!")
+                st.success("✅ Language settings saved!")
 
-    # Export Settings
-    with st.expander("📤 Export Settings", expanded=True):
-        st.markdown("""
-        #### Copy to Riven Configuration
-        Copy these settings to your Riven configuration under the `ranking` section:
-        """)
-        
-        # Add a container with custom styling for the JSON
-        st.markdown("""
-        <style>
-        .json-container {
-            background-color: #f8f9fa;
-            border-radius: 0.5rem;
-            padding: 1rem;
-            margin: 1rem 0;
-            font-family: monospace;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-        
-        with st.container():
-            st.json(st.session_state.conf['settings_model'], expanded=True)
+    with settings_tabs[3]:
+        with st.form("resolutions_form"):
+            st.markdown("### Resolution Settings")
+            resolutions_config = settings_model.get('resolutions', {})
             
-            # Add a copy button
-            if st.button("📋 Copy to Clipboard", key="copy_settings"):
-                st.toast("✅ Settings copied to clipboard!")
-        
-    # Import Settings
-    with st.expander("📥 Import Settings"):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.markdown("#### Enable/Disable Resolutions")
+                r2160p = st.checkbox("4K/2160p", value=resolutions_config.get('r2160p', False))
+                r1080p = st.checkbox("1080p", value=resolutions_config.get('r1080p', True))
+                r720p = st.checkbox("720p", value=resolutions_config.get('r720p', True))
+                
+            with col2:
+                r480p = st.checkbox("480p", value=resolutions_config.get('r480p', False))
+                r360p = st.checkbox("360p", value=resolutions_config.get('r360p', False))
+                unknown = st.checkbox("Unknown", value=resolutions_config.get('unknown', True))
+
+            submit = st.form_submit_button('💾 Save Resolution Settings')
+            if submit:
+                settings_model['resolutions'] = {
+                    'r2160p': r2160p,
+                    'r1080p': r1080p,
+                    'r720p': r720p,
+                    'r480p': r480p,
+                    'r360p': r360p,
+                    'unknown': unknown
+                }
+                save_conf_to_query_params()
+                st.success("✅ Resolution settings saved!")
+
+    with settings_tabs[4]:
+        with st.form("options_form"):
+            st.markdown("### General Options")
+            options_config = settings_model.get('options', {})
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                title_similarity = st.slider(
+                    "Title Similarity Threshold",
+                    min_value=0.0,
+                    max_value=1.0,
+                    value=float(options_config.get('title_similarity', 0.85)),
+                    help="Minimum similarity ratio required between parsed and correct titles"
+                )
+                
+                remove_ranks_under = st.number_input(
+                    "Remove Ranks Under",
+                    value=int(options_config.get('remove_ranks_under', -10000)),
+                    help="Remove torrents with ranks below this value"
+                )
+
+            with col2:
+                remove_all_trash = st.checkbox(
+                    "Remove All Trash",
+                    value=bool(options_config.get('remove_all_trash', True)),
+                    help="Remove torrents marked as trash"
+                )
+                
+                remove_unknown_languages = st.checkbox(
+                    "Remove Unknown Languages",
+                    value=bool(options_config.get('remove_unknown_languages', False)),
+                    help="Remove torrents with unknown languages"
+                )
+                
+                allow_english_in_languages = st.checkbox(
+                    "Allow English in Languages",
+                    value=bool(options_config.get('allow_english_in_languages', False)),
+                    help="Always allow English language regardless of language settings"
+                )
+                
+                enable_fetch_speed_mode = st.checkbox(
+                    "Enable Fetch Speed Mode",
+                    value=bool(options_config.get('enable_fetch_speed_mode', True)),
+                    help="Optimize fetch operations for speed"
+                )
+                
+                remove_adult_content = st.checkbox(
+                    "Remove Adult Content",
+                    value=bool(options_config.get('remove_adult_content', True)),
+                    help="Remove adult content from results"
+                )
+
+            submit = st.form_submit_button('💾 Save Options')
+            if submit:
+                settings_model['options'] = {
+                    'title_similarity': title_similarity,
+                    'remove_ranks_under': remove_ranks_under,
+                    'remove_all_trash': remove_all_trash,
+                    'remove_unknown_languages': remove_unknown_languages,
+                    'allow_english_in_languages': allow_english_in_languages,
+                    'enable_fetch_speed_mode': enable_fetch_speed_mode,
+                    'remove_adult_content': remove_adult_content
+                }
+                save_conf_to_query_params()
+                st.success("✅ Options saved!")
+
+    with settings_tabs[5]:
+        st.markdown("### Custom Rank Settings")
         st.markdown("""
-        #### Import from JSON
-        Paste your Riven ranking settings here. You can paste either the complete Riven configuration 
-        or just the `ranking` section.
+        Fine-tune ranking values for specific attributes. Enable custom ranks to override the profile's default values.
+        Each attribute can be configured with:
+        - **Fetch**: Whether to look for this attribute
+        - **Rank**: The ranking score for this attribute
+        - **Override**: Enable to use custom rank instead of profile default
         """)
         
-        with st.form("settings_import", border=False):
-            json_string = st.text_area(
-                "JSON Configuration",
-                height=300,  # Make the text area taller
-                help="Paste your JSON configuration here. Both complete Riven config and ranking section only are supported."
-            )
-            submit = st.form_submit_button('📥 Import', use_container_width=True)
-            if submit:
-                json_import = None
-                try:
-                    json_import = json.loads(json_string)
-                    if 'ranking' in json_import:
-                        json_import = json_import['ranking']
-                    RivenRankingSettings(**json_import)
-                except Exception as e:
-                    st.error(f"❌ Invalid configuration: {str(e)}")
-                else:
-                    if json_import is not None:
-                        st.session_state.conf['settings_model'] = json_import
+        rank_categories = [
+            ("Quality", "quality"),
+            ("Rips", "rips"),
+            ("HDR", "hdr"),
+            ("Audio", "audio"),
+            ("Extras", "extras"),
+            ("Trash", "trash")
+        ]
+        
+        category_tabs = st.tabs([cat[0] for cat in rank_categories])
+        
+        for tab, (category_name, category_key) in zip(category_tabs, rank_categories):
+            with tab:
+                with st.form(f"custom_ranks_{category_key}_form"):
+                    custom_ranks = settings_model.get('custom_ranks', {}).get(category_key, {})
+                    
+                    # Convert the custom ranks to a list for the data editor
+                    ranks_list = []
+                    for name, rank_data in custom_ranks.items():
+                        ranks_list.append({
+                            "type": name,
+                            "fetch": bool(rank_data.get('fetch', True)),
+                            "rank": int(rank_data.get('rank', 0)),
+                            "enable": bool(rank_data.get('use_custom_rank', False))
+                        })
+                    
+                    # Sort the list by type for consistency
+                    ranks_list.sort(key=lambda x: x['type'])
+                    
+                    edited_ranks = st.data_editor(
+                        ranks_list,
+                        num_rows="fixed",
+                        use_container_width=True,
+                        disabled=["type"],
+                        column_config={
+                            "type": st.column_config.TextColumn(
+                                "Attribute",
+                                help="The media attribute to rank"
+                            ),
+                            "fetch": st.column_config.CheckboxColumn(
+                                "Fetch",
+                                help="Whether to look for this attribute"
+                            ),
+                            "rank": st.column_config.NumberColumn(
+                                "Rank Value",
+                                help="The ranking score for this attribute"
+                            ),
+                            "enable": st.column_config.CheckboxColumn(
+                                "Override",
+                                help="Enable to use custom rank instead of profile default"
+                            ),
+                        }
+                    )
+                    
+                    submit = st.form_submit_button(f'💾 Save {category_name} Ranks')
+                    if submit:
+                        # Convert the edited ranks back to a dictionary
+                        new_ranks = {}
+                        for rank in edited_ranks:
+                            new_ranks[rank['type']] = {
+                                'fetch': rank['fetch'],
+                                'rank': rank['rank'],
+                                'use_custom_rank': rank['enable']
+                            }
+                        
+                        # Update the settings model
+                        if 'custom_ranks' not in settings_model:
+                            settings_model['custom_ranks'] = {}
+                        settings_model['custom_ranks'][category_key] = new_ranks
                         save_conf_to_query_params()
-                        st.success("✅ Settings imported successfully!")
+                        st.success(f"✅ {category_name} ranks saved!")
 
 
 def render_title(*, conf, index, initial_raw_title, initial_correct_title):
