@@ -568,7 +568,8 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                     help="Enter a regex pattern. Enclose in /pattern/ for case-sensitive matching."
                 )
             with col2:
-                test_case_sensitive = st.checkbox("Case Sensitive", value=False)
+                # Remove manual case-sensitive checkbox since it's determined by pattern format
+                st.markdown("ℹ️ Use /pattern/ for case-sensitive")
             
             test_string = st.text_input(
                 "Test string",
@@ -577,14 +578,20 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             
             if test_pattern and test_string:
                 try:
-                    if test_case_sensitive:
-                        pattern = regex.compile(test_pattern.strip('/'))
+                    # Check if pattern is enclosed in slashes for case-sensitivity
+                    is_case_sensitive = test_pattern.startswith('/') and test_pattern.endswith('/') and len(test_pattern) > 2
+                    if is_case_sensitive:
+                        # Remove the enclosing slashes and compile without IGNORECASE flag
+                        pattern = regex.compile(test_pattern[1:-1])
                     else:
+                        # Non-case-sensitive pattern
                         pattern = regex.compile(test_pattern, regex.IGNORECASE)
                     
                     match = pattern.search(test_string)
                     if match:
                         st.success(f"✅ Pattern matches! Found: {match.group(0)}")
+                        if is_case_sensitive:
+                            st.info("Note: This is a case-sensitive match")
                     else:
                         st.error("❌ Pattern does not match")
                 except Exception as e:
@@ -592,35 +599,55 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             
             st.markdown("---")
             
-            # Pattern management in a single column
-            st.markdown("### Pattern Management")
-            
             # Required Patterns
             st.markdown("#### Required Patterns")
             st.markdown("Patterns that must be present in the torrent name")
             current_required = settings_model.get('require', [])
-            delete_required = "None"  # Initialize with default value
             
-            # Display current patterns
-            if current_required:
-                st.markdown("Current patterns:")
-                for i, pattern in enumerate(current_required):
-                    st.code(f"{i+1}. {pattern}", language="")
-                delete_required = st.selectbox(
-                    "Select pattern to delete",
-                    options=["None"] + [str(i+1) for i in range(len(current_required))],
-                    key="delete_required"
-                )
-            else:
-                st.info("No required patterns set")
-            
-            # Add new pattern
-            new_required = st.text_area(
-                "Add required patterns (one per line)",
-                key="new_required",
+            # Single text area for all required patterns
+            current_required_text = st.text_area(
+                "Current patterns (one per line)",
+                value="\n".join(current_required),
+                key="current_required",
                 height=100,
-                help="Enter one pattern per line. Use /pattern/ for case-sensitive matching."
+                help="Edit or remove existing patterns. One pattern per line."
             )
+            
+            # Required patterns testing
+            with st.expander("🧪 Test Required Patterns"):
+                test_string_required = st.text_input(
+                    "Enter a string to test against required patterns",
+                    key="test_string_required",
+                    help="Enter a string to test against all your required patterns"
+                )
+                
+                if test_string_required:
+                    st.markdown("#### Test Results:")
+                    any_patterns = False
+                    for pattern in [p.strip() for p in current_required_text.split('\n') if p.strip()]:
+                        any_patterns = True
+                        try:
+                            # Check if pattern is enclosed in slashes for case-sensitivity
+                            is_case_sensitive = pattern.startswith('/') and pattern.endswith('/') and len(pattern) > 2
+                            if is_case_sensitive:
+                                # Remove the enclosing slashes and compile without IGNORECASE flag
+                                regex_pattern = regex.compile(pattern[1:-1])
+                            else:
+                                # Non-case-sensitive pattern
+                                regex_pattern = regex.compile(pattern, regex.IGNORECASE)
+                            
+                            match = regex_pattern.search(test_string_required)
+                            if match:
+                                st.success(f"✅ Pattern `{pattern}` matches! Found: `{match.group(0)}`")
+                                if is_case_sensitive:
+                                    st.info("Note: This was a case-sensitive match")
+                            else:
+                                st.error(f"❌ Pattern `{pattern}` does not match")
+                        except Exception as e:
+                            st.error(f"❌ Invalid regex pattern `{pattern}`: {str(e)}")
+                    
+                    if not any_patterns:
+                        st.info("No patterns to test. Add some patterns above.")
             
             st.markdown("---")
             
@@ -628,28 +655,51 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             st.markdown("#### Excluded Patterns")
             st.markdown("Patterns that will cause a torrent to be excluded if matched")
             current_excluded = settings_model.get('exclude', [])
-            delete_excluded = "None"  # Initialize with default value
             
-            # Display current patterns
-            if current_excluded:
-                st.markdown("Current patterns:")
-                for i, pattern in enumerate(current_excluded):
-                    st.code(f"{i+1}. {pattern}", language="")
-                delete_excluded = st.selectbox(
-                    "Select pattern to delete",
-                    options=["None"] + [str(i+1) for i in range(len(current_excluded))],
-                    key="delete_excluded"
-                )
-            else:
-                st.info("No excluded patterns set")
-            
-            # Add new pattern
-            new_excluded = st.text_area(
-                "Add excluded patterns (one per line)",
-                key="new_excluded",
+            # Single text area for all excluded patterns
+            current_excluded_text = st.text_area(
+                "Current patterns (one per line)",
+                value="\n".join(current_excluded),
+                key="current_excluded",
                 height=100,
-                help="Enter one pattern per line. Use /pattern/ for case-sensitive matching."
+                help="Edit or remove existing patterns. One pattern per line."
             )
+            
+            # Excluded patterns testing
+            with st.expander("🧪 Test Excluded Patterns"):
+                test_string_excluded = st.text_input(
+                    "Enter a string to test against excluded patterns",
+                    key="test_string_excluded",
+                    help="Enter a string to test against all your excluded patterns"
+                )
+                
+                if test_string_excluded:
+                    st.markdown("#### Test Results:")
+                    any_patterns = False
+                    for pattern in [p.strip() for p in current_excluded_text.split('\n') if p.strip()]:
+                        any_patterns = True
+                        try:
+                            # Check if pattern is enclosed in slashes for case-sensitivity
+                            is_case_sensitive = pattern.startswith('/') and pattern.endswith('/') and len(pattern) > 2
+                            if is_case_sensitive:
+                                # Remove the enclosing slashes and compile without IGNORECASE flag
+                                regex_pattern = regex.compile(pattern[1:-1])
+                            else:
+                                # Non-case-sensitive pattern
+                                regex_pattern = regex.compile(pattern, regex.IGNORECASE)
+                            
+                            match = regex_pattern.search(test_string_excluded)
+                            if match:
+                                st.error(f"❌ Pattern `{pattern}` matches (would exclude)! Found: `{match.group(0)}`")
+                                if is_case_sensitive:
+                                    st.info("Note: This was a case-sensitive match")
+                            else:
+                                st.success(f"✅ Pattern `{pattern}` does not match (would not exclude)")
+                        except Exception as e:
+                            st.error(f"❌ Invalid regex pattern `{pattern}`: {str(e)}")
+                    
+                    if not any_patterns:
+                        st.info("No patterns to test. Add some patterns above.")
             
             st.markdown("---")
             
@@ -657,28 +707,51 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             st.markdown("#### Preferred Patterns")
             st.markdown("Patterns that will give a rank boost to matching torrents")
             current_preferred = settings_model.get('preferred', [])
-            delete_preferred = "None"  # Initialize with default value
             
-            # Display current patterns
-            if current_preferred:
-                st.markdown("Current patterns:")
-                for i, pattern in enumerate(current_preferred):
-                    st.code(f"{i+1}. {pattern}", language="")
-                delete_preferred = st.selectbox(
-                    "Select pattern to delete",
-                    options=["None"] + [str(i+1) for i in range(len(current_preferred))],
-                    key="delete_preferred"
-                )
-            else:
-                st.info("No preferred patterns set")
-            
-            # Add new pattern
-            new_preferred = st.text_area(
-                "Add preferred patterns (one per line)",
-                key="new_preferred",
+            # Single text area for all preferred patterns
+            current_preferred_text = st.text_area(
+                "Current patterns (one per line)",
+                value="\n".join(current_preferred),
+                key="current_preferred",
                 height=100,
-                help="Enter one pattern per line. Use /pattern/ for case-sensitive matching."
+                help="Edit or remove existing patterns. One pattern per line."
             )
+            
+            # Preferred patterns testing
+            with st.expander("🧪 Test Preferred Patterns"):
+                test_string_preferred = st.text_input(
+                    "Enter a string to test against preferred patterns",
+                    key="test_string_preferred",
+                    help="Enter a string to test against all your preferred patterns"
+                )
+                
+                if test_string_preferred:
+                    st.markdown("#### Test Results:")
+                    any_patterns = False
+                    for pattern in [p.strip() for p in current_preferred_text.split('\n') if p.strip()]:
+                        any_patterns = True
+                        try:
+                            # Check if pattern is enclosed in slashes for case-sensitivity
+                            is_case_sensitive = pattern.startswith('/') and pattern.endswith('/') and len(pattern) > 2
+                            if is_case_sensitive:
+                                # Remove the enclosing slashes and compile without IGNORECASE flag
+                                regex_pattern = regex.compile(pattern[1:-1])
+                            else:
+                                # Non-case-sensitive pattern
+                                regex_pattern = regex.compile(pattern, regex.IGNORECASE)
+                            
+                            match = regex_pattern.search(test_string_preferred)
+                            if match:
+                                st.success(f"✅ Pattern `{pattern}` matches (would boost)! Found: `{match.group(0)}`")
+                                if is_case_sensitive:
+                                    st.info("Note: This was a case-sensitive match")
+                            else:
+                                st.warning(f"⚠️ Pattern `{pattern}` does not match (no boost)")
+                        except Exception as e:
+                            st.error(f"❌ Invalid regex pattern `{pattern}`: {str(e)}")
+                    
+                    if not any_patterns:
+                        st.info("No patterns to test. Add some patterns above.")
 
             # Common patterns suggestions
             with st.expander("📚 Common Pattern Examples"):
@@ -701,66 +774,11 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
 
             submit = st.form_submit_button('💾 Save Changes')
             if submit:
-                # Handle pattern additions
-                if new_required:
-                    new_patterns = []
-                    for p in new_required.split('\n'):
-                        p = p.strip()
-                        if p:
-                            # Handle patterns enclosed in slashes correctly
-                            if p.startswith('/') and p.endswith('/') and len(p) > 2:
-                                # Keep the slashes for case-sensitive patterns
-                                new_patterns.append(p)
-                            else:
-                                new_patterns.append(p)
-                    current_required.extend(new_patterns)
+                # Update patterns from text areas
+                settings_model['require'] = [p.strip() for p in current_required_text.split('\n') if p.strip()]
+                settings_model['exclude'] = [p.strip() for p in current_excluded_text.split('\n') if p.strip()]
+                settings_model['preferred'] = [p.strip() for p in current_preferred_text.split('\n') if p.strip()]
                 
-                if new_excluded:
-                    new_patterns = []
-                    for p in new_excluded.split('\n'):
-                        p = p.strip()
-                        if p:
-                            # Handle patterns enclosed in slashes correctly
-                            if p.startswith('/') and p.endswith('/') and len(p) > 2:
-                                # Keep the slashes for case-sensitive patterns
-                                new_patterns.append(p)
-                            else:
-                                new_patterns.append(p)
-                    current_excluded.extend(new_patterns)
-                
-                if new_preferred:
-                    new_patterns = []
-                    for p in new_preferred.split('\n'):
-                        p = p.strip()
-                        if p:
-                            # Handle patterns enclosed in slashes correctly
-                            if p.startswith('/') and p.endswith('/') and len(p) > 2:
-                                # Keep the slashes for case-sensitive patterns
-                                new_patterns.append(p)
-                            else:
-                                new_patterns.append(p)
-                    current_preferred.extend(new_patterns)
-                
-                # Handle pattern deletions
-                if current_required and delete_required != "None":
-                    index = int(delete_required) - 1
-                    if 0 <= index < len(current_required):
-                        current_required.pop(index)
-                
-                if current_excluded and delete_excluded != "None":
-                    index = int(delete_excluded) - 1
-                    if 0 <= index < len(current_excluded):
-                        current_excluded.pop(index)
-                
-                if current_preferred and delete_preferred != "None":
-                    index = int(delete_preferred) - 1
-                    if 0 <= index < len(current_preferred):
-                        current_preferred.pop(index)
-                
-                # Update settings
-                settings_model['require'] = current_required
-                settings_model['exclude'] = current_excluded
-                settings_model['preferred'] = current_preferred
                 save_conf_to_query_params()
                 st.success("✅ Changes saved!")
                 st.rerun()
