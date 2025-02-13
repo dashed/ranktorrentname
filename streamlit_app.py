@@ -5,7 +5,8 @@ from RTN.parser import parse
 from RTN.ranker import calculate_preferred
 from RTN.models import (
     BaseRankingModel, DefaultRanking, SettingsModel, CustomRank,
-    ResolutionConfig, OptionsConfig, LanguagesConfig, CustomRanksConfig
+    ResolutionConfig, OptionsConfig, LanguagesConfig, CustomRanksConfig,
+    QualityRankModel, RipsRankModel, HdrRankModel, AudioRankModel, ExtrasRankModel, TrashRankModel
 )
 import json
 from pydantic import BaseModel
@@ -254,13 +255,29 @@ riven_rank_models = {
 
 
 def generate_initial_conf():
+    # Initialize with default settings
+    default_settings = SettingsModel(
+        profile="default",
+        require=[],
+        exclude=[],
+        preferred=[],
+        custom_ranks=CustomRanksConfig(
+            quality=QualityRankModel(),
+            rips=RipsRankModel(),
+            hdr=HdrRankModel(),
+            audio=AudioRankModel(),
+            extras=ExtrasRankModel(),
+            trash=TrashRankModel()
+        )
+    ).model_dump()
+
     return {
         "titles": [{
             "raw_title": "Example.Movie.2020.1080p.BluRay.x264-Example",
             "correct_title": ""
         }],
         "remove_trash": True,
-        "settings_model": SettingsModel().model_dump()
+        "settings_model": default_settings
     }
 
 
@@ -292,20 +309,22 @@ load_conf_from_query_params()
 
 
 def get_settings_model(settings_model):
-
-    custom_ranks = dict()
-    for type, custom_rank in settings_model['custom_ranks'].items():
-        custom_ranks[type] = CustomRank(
-            fetch=bool(custom_rank['fetch']),
-            rank=int(custom_rank['rank']),
-            enable=bool(custom_rank['enable']))
+    # Convert the custom ranks configuration
+    custom_ranks_config = CustomRanksConfig(
+        quality=QualityRankModel(**settings_model.get('custom_ranks', {}).get('quality', {})),
+        rips=RipsRankModel(**settings_model.get('custom_ranks', {}).get('rips', {})),
+        hdr=HdrRankModel(**settings_model.get('custom_ranks', {}).get('hdr', {})),
+        audio=AudioRankModel(**settings_model.get('custom_ranks', {}).get('audio', {})),
+        extras=ExtrasRankModel(**settings_model.get('custom_ranks', {}).get('extras', {})),
+        trash=TrashRankModel(**settings_model.get('custom_ranks', {}).get('trash', {}))
+    )
 
     return SettingsModel(
         profile=settings_model['profile'],
         require=settings_model['require'],
         exclude=settings_model['exclude'],
         preferred=settings_model['preferred'],
-        custom_ranks=custom_ranks,
+        custom_ranks=custom_ranks_config
     )
 
 
@@ -583,15 +602,29 @@ def render_settings():
                 with st.form(f"custom_ranks_{category_key}_form"):
                     custom_ranks = settings_model.get('custom_ranks', {}).get(category_key, {})
                     
-                    # Convert the custom ranks to a list for the data editor
+                    # Get the appropriate rank model class based on category
+                    rank_model_class = {
+                        'quality': QualityRankModel,
+                        'rips': RipsRankModel,
+                        'hdr': HdrRankModel,
+                        'audio': AudioRankModel,
+                        'extras': ExtrasRankModel,
+                        'trash': TrashRankModel
+                    }[category_key]
+                    
+                    # Create or get the rank model instance
+                    rank_model = rank_model_class(**custom_ranks) if custom_ranks else rank_model_class()
+                    
+                    # Convert the model to a list for the data editor
                     ranks_list = []
-                    for name, rank_data in custom_ranks.items():
-                        ranks_list.append({
-                            "type": name,
-                            "fetch": bool(rank_data.get('fetch', True)),
-                            "rank": int(rank_data.get('rank', 0)),
-                            "enable": bool(rank_data.get('use_custom_rank', False))
-                        })
+                    for field_name, field_value in rank_model.model_dump().items():
+                        if isinstance(field_value, CustomRank):
+                            ranks_list.append({
+                                "type": field_name,
+                                "fetch": field_value.fetch,
+                                "rank": field_value.rank,
+                                "enable": field_value.use_custom_rank
+                            })
                     
                     # Sort the list by type for consistency
                     ranks_list.sort(key=lambda x: x['type'])
@@ -623,7 +656,7 @@ def render_settings():
                     
                     submit = st.form_submit_button(f'💾 Save {category_name} Ranks')
                     if submit:
-                        # Convert the edited ranks back to a dictionary
+                        # Convert the edited ranks back to the model format
                         new_ranks = {}
                         for rank in edited_ranks:
                             new_ranks[rank['type']] = {
