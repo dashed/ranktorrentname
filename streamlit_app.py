@@ -636,9 +636,12 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                                 # Non-case-sensitive pattern
                                 regex_pattern = regex.compile(pattern, regex.IGNORECASE)
                             
-                            match = regex_pattern.search(test_string_required)
-                            if match:
-                                st.success(f"✅ Pattern `{pattern}` matches! Found: `{match.group(0)}`")
+                            # Find all matches
+                            matches = list(regex_pattern.finditer(test_string_required))
+                            if matches:
+                                st.success(f"✅ Pattern `{pattern}` matches!")
+                                for i, match in enumerate(matches, 1):
+                                    st.code(f"Match {i}: '{match.group(0)}' at position {match.start()}-{match.end()}")
                                 if is_case_sensitive:
                                     st.info("Note: This was a case-sensitive match")
                             else:
@@ -688,9 +691,12 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                                 # Non-case-sensitive pattern
                                 regex_pattern = regex.compile(pattern, regex.IGNORECASE)
                             
-                            match = regex_pattern.search(test_string_excluded)
-                            if match:
-                                st.error(f"❌ Pattern `{pattern}` matches (would exclude)! Found: `{match.group(0)}`")
+                            # Find all matches
+                            matches = list(regex_pattern.finditer(test_string_excluded))
+                            if matches:
+                                st.error(f"❌ Pattern `{pattern}` matches (would exclude)!")
+                                for i, match in enumerate(matches, 1):
+                                    st.code(f"Match {i}: '{match.group(0)}' at position {match.start()}-{match.end()}")
                                 if is_case_sensitive:
                                     st.info("Note: This was a case-sensitive match")
                             else:
@@ -740,9 +746,12 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                                 # Non-case-sensitive pattern
                                 regex_pattern = regex.compile(pattern, regex.IGNORECASE)
                             
-                            match = regex_pattern.search(test_string_preferred)
-                            if match:
-                                st.success(f"✅ Pattern `{pattern}` matches (would boost)! Found: `{match.group(0)}`")
+                            # Find all matches
+                            matches = list(regex_pattern.finditer(test_string_preferred))
+                            if matches:
+                                st.success(f"✅ Pattern `{pattern}` matches (would boost)!")
+                                for i, match in enumerate(matches, 1):
+                                    st.code(f"Match {i}: '{match.group(0)}' at position {match.start()}-{match.end()}")
                                 if is_case_sensitive:
                                     st.info("Note: This was a case-sensitive match")
                             else:
@@ -1026,8 +1035,8 @@ Example:
                 "upscaled": False
             }),
             ("Trash", "trash", {
-                "cam": False, "clean_audio": False, "pdtv": False,
-                "r5": False, "screener": False, "size": False,
+                "cam": False, "clean_audio": False, "r5": False,
+                "satrip": False, "screener": False, "size": False,
                 "telecine": False, "telesync": False
             })
         ]
@@ -1298,43 +1307,159 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
 
                 with analysis_tabs[3]:
                     try:
-                        col1, col2 = st.columns(2)
+                        st.markdown("### 🎯 Pattern Matches")
                         
-                        with col1:
+                        # Required Patterns
+                        st.markdown("#### Required Patterns")
+                        required_patterns = settings_model.require
+                        if required_patterns:
+                            any_required_matches = False
+                            for pattern_str in required_patterns:
+                                try:
+                                    # Check if pattern is case-sensitive (only if it's a string)
+                                    if isinstance(pattern_str, str):
+                                        is_case_sensitive = pattern_str.startswith('/') and pattern_str.endswith('/') and len(pattern_str) > 2
+                                        if is_case_sensitive:
+                                            pattern = pattern_str[1:-1]
+                                            regex_pattern = regex.compile(pattern)
+                                        else:
+                                            pattern = pattern_str
+                                            regex_pattern = regex.compile(pattern, regex.IGNORECASE)
+                                    else:
+                                        # If it's already a compiled pattern, use it directly
+                                        regex_pattern = pattern_str
+                                        pattern = str(pattern_str.pattern)
+                                        is_case_sensitive = not bool(regex_pattern.flags & regex.IGNORECASE)
+                                    
+                                    matches = list(regex_pattern.finditer(raw_title_text_input))
+                                    if matches:
+                                        any_required_matches = True
+                                        st.success(f"✅ Pattern `{pattern}` matches:")
+                                        for i, match in enumerate(matches, 1):
+                                            st.code(f"Match {i}: '{match.group(0)}' at position {match.start()}-{match.end()}")
+                                        if is_case_sensitive:
+                                            st.info("Note: This was a case-sensitive match")
+                                    else:
+                                        st.error(f"❌ Pattern `{pattern}` does not match")
+                                except Exception as e:
+                                    st.error(f"❌ Invalid regex pattern `{pattern_str}`: {str(e)}")
+                            
                             matches_required = check_required(torrent.data, settings_model)
                             st.markdown(
-                                f"**Required Patterns:** {emoji_bool(matches_required)}",
-                                help="Check if the title meets the required patterns"
+                                f"**Overall Required Status:** {emoji_bool(matches_required)}",
+                                help="Title must match ALL required patterns"
                             )
-
+                        else:
+                            st.info("No required patterns configured")
+                        
+                        st.markdown("---")
+                        
+                        # Excluded Patterns
+                        st.markdown("#### Excluded Patterns")
+                        excluded_patterns = settings_model.exclude
+                        if excluded_patterns:
                             failed_keys = []
+                            for pattern_str in excluded_patterns:
+                                try:
+                                    # Check if pattern is case-sensitive (only if it's a string)
+                                    if isinstance(pattern_str, str):
+                                        is_case_sensitive = pattern_str.startswith('/') and pattern_str.endswith('/') and len(pattern_str) > 2
+                                        if is_case_sensitive:
+                                            pattern = pattern_str[1:-1]
+                                            regex_pattern = regex.compile(pattern)
+                                        else:
+                                            pattern = pattern_str
+                                            regex_pattern = regex.compile(pattern, regex.IGNORECASE)
+                                    else:
+                                        # If it's already a compiled pattern, use it directly
+                                        regex_pattern = pattern_str
+                                        pattern = str(pattern_str.pattern)
+                                        is_case_sensitive = not bool(regex_pattern.flags & regex.IGNORECASE)
+                                    
+                                    matches = list(regex_pattern.finditer(raw_title_text_input))
+                                    if matches:
+                                        st.error(f"❌ Pattern `{pattern}` matches (would exclude):")
+                                        for i, match in enumerate(matches, 1):
+                                            st.code(f"Match {i}: '{match.group(0)}' at position {match.start()}-{match.end()}")
+                                        if is_case_sensitive:
+                                            st.info("Note: This was a case-sensitive match")
+                                        failed_keys.append(pattern_str)
+                                    else:
+                                        st.success(f"✅ Pattern `{pattern}` does not match (would not exclude)")
+                                except Exception as e:
+                                    st.error(f"❌ Invalid regex pattern `{pattern_str}`: {str(e)}")
+                            
                             matches_exclude = check_exclude(torrent.data, settings_model, failed_keys)
                             st.markdown(
-                                f"**Excluded Patterns:** {emoji_bool(not matches_exclude)}",
-                                help="Check if the title contains excluded patterns"
+                                f"**Overall Exclude Status:** {emoji_bool(not matches_exclude)}",
+                                help="Title must not match ANY excluded patterns"
                             )
-                            if failed_keys:
-                                st.markdown("**Failed Exclude Patterns:**")
-                                for key in failed_keys:
-                                    st.markdown(f"- `{key}`")
+                        else:
+                            st.info("No excluded patterns configured")
                         
-                        with col2:
-                            st.markdown("### 🚩 Special Flags")
-                            flags = {
-                                "Extended": torrent.data.extended,
-                                "Converted": torrent.data.converted,
-                                "Hardcoded": torrent.data.hardcoded,
-                                "Proper": torrent.data.proper,
-                                "Repack": torrent.data.repack,
-                                "Retail": torrent.data.retail,
-                                "Remastered": torrent.data.remastered,
-                                "Unrated": torrent.data.unrated,
-                                "Documentary": torrent.data.documentary,
-                                "Scene Release": torrent.data.scene
-                            }
-                            for flag, value in flags.items():
-                                if value:
-                                    st.markdown(f"- {flag}")
+                        st.markdown("---")
+                        
+                        # Preferred Patterns
+                        st.markdown("#### Preferred Patterns")
+                        preferred_patterns = settings_model.preferred
+                        if preferred_patterns:
+                            any_preferred_matches = False
+                            for pattern_str in preferred_patterns:
+                                try:
+                                    # Check if pattern is case-sensitive (only if it's a string)
+                                    if isinstance(pattern_str, str):
+                                        is_case_sensitive = pattern_str.startswith('/') and pattern_str.endswith('/') and len(pattern_str) > 2
+                                        if is_case_sensitive:
+                                            pattern = pattern_str[1:-1]
+                                            regex_pattern = regex.compile(pattern)
+                                        else:
+                                            pattern = pattern_str
+                                            regex_pattern = regex.compile(pattern, regex.IGNORECASE)
+                                    else:
+                                        # If it's already a compiled pattern, use it directly
+                                        regex_pattern = pattern_str
+                                        pattern = str(pattern_str.pattern)
+                                        is_case_sensitive = not bool(regex_pattern.flags & regex.IGNORECASE)
+                                    
+                                    matches = list(regex_pattern.finditer(raw_title_text_input))
+                                    if matches:
+                                        any_preferred_matches = True
+                                        st.success(f"✅ Pattern `{pattern}` matches (rank boost):")
+                                        for i, match in enumerate(matches, 1):
+                                            st.code(f"Match {i}: '{match.group(0)}' at position {match.start()}-{match.end()}")
+                                        if is_case_sensitive:
+                                            st.info("Note: This was a case-sensitive match")
+                                    else:
+                                        st.warning(f"⚠️ Pattern `{pattern}` does not match (no boost)")
+                                except Exception as e:
+                                    st.error(f"❌ Invalid regex pattern `{pattern_str}`: {str(e)}")
+                            
+                            matches_preferred = calculate_preferred(torrent.data, settings_model) > 0
+                            st.markdown(
+                                f"**Overall Preferred Status:** {emoji_bool(matches_preferred)}",
+                                help="Title gets a rank boost for each preferred pattern that matches"
+                            )
+                        else:
+                            st.info("No preferred patterns configured")
+                        
+                        st.markdown("---")
+                        
+                        st.markdown("### 🚩 Special Flags")
+                        flags = {
+                            "Extended": torrent.data.extended,
+                            "Converted": torrent.data.converted,
+                            "Hardcoded": torrent.data.hardcoded,
+                            "Proper": torrent.data.proper,
+                            "Repack": torrent.data.repack,
+                            "Retail": torrent.data.retail,
+                            "Remastered": torrent.data.remastered,
+                            "Unrated": torrent.data.unrated,
+                            "Documentary": torrent.data.documentary,
+                            "Scene Release": torrent.data.scene
+                        }
+                        for flag, value in flags.items():
+                            if value:
+                                st.markdown(f"- {flag}")
                     except Exception as err:
                         st.error(f"❌ Error displaying pattern matches: {str(err)}")
 
