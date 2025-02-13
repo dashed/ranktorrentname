@@ -9,6 +9,13 @@ from RTN.models import SettingsModel, CustomRank
 import json
 from pydantic import BaseModel
 from typing import List, Dict
+import pkg_resources
+
+# Get RTN version
+try:
+    rtn_version = pkg_resources.get_distribution('rank-torrent-name').version
+except:
+    rtn_version = "Unknown"
 
 # Set the page configuration with a modern layout
 st.set_page_config(
@@ -57,6 +64,9 @@ st.markdown("""
 with st.sidebar:
     st.image("https://raw.githubusercontent.com/rivenmedia/riven/main/docs/logo.png", width=200)
     st.title("Navigation")
+    
+    # Display version
+    st.caption(f"RTN Version: {rtn_version}")
     
     page = st.radio(
         "Go to",
