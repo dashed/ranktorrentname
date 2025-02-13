@@ -62,7 +62,7 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # Sidebar navigation and info
 with st.sidebar:
-    st.image("https://raw.githubusercontent.com/rivenmedia/riven/main/docs/logo.png", width=200)
+    st.title("🎬 rank-torrent-name")
     st.title("Navigation")
     
     # Display version
