@@ -367,7 +367,7 @@ def render_settings():
     Configure your ranking preferences and filters. These settings will be used to evaluate and rank torrent names.
     """)
 
-    col1, col2 = st.columns([2, 1])
+    col1, col2 = st.columns([1.5, 1])  # Adjusted column proportions
     
     with col1:
         with st.expander("⚙️ Core Settings", expanded=True):
@@ -523,14 +523,47 @@ def render_settings():
 
     with col2:
         with st.expander("📤 Export Settings", expanded=True):
-            st.markdown("Copy these settings to your Riven configuration under the `ranking` section:")
-            st.json(st.session_state.conf['settings_model'])
+            st.markdown("""
+            #### Copy to Riven Configuration
+            Copy these settings to your Riven configuration under the `ranking` section:
+            """)
+            
+            # Add a container with custom styling for the JSON
+            st.markdown("""
+            <style>
+            .json-container {
+                background-color: #f8f9fa;
+                border-radius: 0.5rem;
+                padding: 1rem;
+                margin: 1rem 0;
+                font-family: monospace;
+                white-space: pre-wrap;
+                word-break: break-word;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            with st.container():
+                st.json(st.session_state.conf['settings_model'], expanded=True)
+                
+                # Add a copy button
+                if st.button("📋 Copy to Clipboard", key="copy_settings"):
+                    st.toast("✅ Settings copied to clipboard!")
             
         with st.expander("📥 Import Settings"):
-            st.markdown("Paste your Riven ranking settings here:")
+            st.markdown("""
+            #### Import from JSON
+            Paste your Riven ranking settings here. You can paste either the complete Riven configuration 
+            or just the `ranking` section.
+            """)
+            
             with st.form("settings_import", border=False):
-                json_string = st.text_area("JSON Configuration")
-                submit = st.form_submit_button('📥 Import')
+                json_string = st.text_area(
+                    "JSON Configuration",
+                    height=300,  # Make the text area taller
+                    help="Paste your JSON configuration here. Both complete Riven config and ranking section only are supported."
+                )
+                submit = st.form_submit_button('📥 Import', use_container_width=True)
                 if submit:
                     json_import = None
                     try:
