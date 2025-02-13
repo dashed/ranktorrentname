@@ -9,11 +9,11 @@ from RTN.models import SettingsModel, CustomRank
 import json
 from pydantic import BaseModel
 from typing import List, Dict
-import pkg_resources
+from importlib.metadata import version
 
 # Get RTN version
 try:
-    rtn_version = pkg_resources.get_distribution('rank-torrent-name').version
+    rtn_version = version('rank-torrent-name')
 except:
     rtn_version = "Unknown"
 
