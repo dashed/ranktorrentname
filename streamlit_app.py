@@ -21,7 +21,7 @@ except:
 
 # Set the page configuration with a modern layout
 st.set_page_config(
-    page_title="Riven Torrent Name Ranker",
+    page_title="Rank Torrent Name (RTN)",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -29,7 +29,7 @@ st.set_page_config(
         'Get Help': 'https://github.com/dreulavelle/rank-torrent-name',
         'Report a bug': 'https://github.com/dreulavelle/rank-torrent-name/issues',
         'About': '''
-        # Riven Torrent Name Ranker
+        # Rank Torrent Name (RTN)
         
         A tool to test and configure ranking settings for the Riven media manager.
         
@@ -63,6 +63,9 @@ st.markdown("""
     }
     .stTabs [data-baseweb="tab"] {
         height: 4rem;
+    }
+    .st-emotion-cache-1y4p8pa {
+        max-width: 100%;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -117,140 +120,174 @@ Test settings for `riven`.
 
 # From https://github.com/rivenmedia/riven/blob/0dbc9f70161dc6cd5f219e81a4424b15aa6fbf14/backend/program/settings/versions.py
 
-
+# Default ranking models from RTN
 class DefaultRanking(BaseRankingModel):
-    uhd: int = -1000
-    fhd: int = 100
-    hd: int = 50
-    sd: int = -100
-    dolby_video: int = -100
-    aac: int = 70
+    """Default ranking model preset that covers the most common use cases."""
+    # quality
+    av1: int = 0
+    avc: int = 500
+    bluray: int = 100
+    dvd: int = -1000
+    hdtv: int = -1000
+    hevc: int = 500
+    mpeg: int = -100
+    remux: int = -10000
+    vhs: int = -10000
+    web: int = 150
+    webdl: int = 5000
+    webmux: int = -10000
+    xvid: int = -10000
+    pdtv: int = -10000
+
+    # rips
+    bdrip: int = -1000
+    brrip: int = -1000
+    dvdrip: int = -1000
+    hdrip: int = -1000
+    ppvrip: int = -1000
+    tvrip: int = -10000
+    uhdrip: int = -1000
+    vhsrip: int = -10000
+    webdlrip: int = -10000
+    webrip: int = 30
+
+    # hdr
+    bit_10: int = 5
+    dolby_vision: int = 50
+    hdr: int = 50
+    hdr10plus: int = 0
+    sdr: int = 0
+
+    # audio
+    aac: int = 250
+    ac3: int = 30
+    atmos: int = 400
+    dolby_digital: int = 0
+    dolby_digital_plus: int = 0
+    dts_lossy: int = 600
+    dts_lossless: int = 0
+    eac3: int = 250
+    flac: int = 0
+    mono: int = -10000
+    mp3: int = -10000
+    stereo: int = 0
+    surround: int = 0
+    truehd: int = -100
+
+    # extras
+    three_d: int = -10000
+    converted: int = -1250
+    documentary: int = -250
+    dubbed: int = 0
+    edition: int = 100
+    hardcoded: int = 0
+    network: int = 300
+    proper: int = 1000
+    repack: int = 1000
+    retail: int = 0
+    site: int = -10000
+    subbed: int = 0
+    upscaled: int = -10000
+    scene: int = 2000
+
+    # trash
+    cam: int = -10000
+    clean_audio: int = -10000
+    r5: int = -10000
+    satrip: int = -10000
+    screener: int = -10000
+    size: int = -10000
+    telecine: int = -10000
+    telesync: int = -10000
+    adult: int = -10000
+
+
+class BestRanking(BaseRankingModel):
+    """Ranking model preset that prioritizes the highest quality and most desirable attributes."""
+    # quality
+    av1: int = 500
+    avc: int = 500
+    bluray: int = 100
+    dvd: int = -5000
+    hdtv: int = -5000
+    hevc: int = 500
+    mpeg: int = -1000
+    remux: int = 10000
+    vhs: int = -10000
+    web: int = 100
+    webdl: int = 200
+    webmux: int = -10000
+    xvid: int = -10000
+    pdtv: int = -10000
+
+    # rips
+    bdrip: int = -5000
+    brrip: int = -10000
+    dvdrip: int = -5000
+    hdrip: int = -10000
+    ppvrip: int = -10000
+    tvrip: int = -10000
+    uhdrip: int = -5000
+    vhsrip: int = -10000
+    webdlrip: int = -10000
+    webrip: int = -1000
+
+    # hdr
+    bit_10: int = 100
+    dolby_vision: int = 3000
+    hdr: int = 2000
+    hdr10plus: int = 2100
+    sdr: int = 0
+
+    # audio
+    aac: int = 100
     ac3: int = 50
-    remux: int = -1000
-    webdl: int = 90
-    bluray: int = 80
-    dvdrip: int = -100
-    hdtv: int = -100
+    atmos: int = 1000
+    dolby_digital: int = 0
+    dolby_digital_plus: int = 0
+    dts_lossy: int = 100
+    dts_lossless: int = 2000
+    eac3: int = 150
+    flac: int = 0
+    mono: int = -1000
+    mp3: int = -1000
+    stereo: int = 0
+    surround: int = 0
+    truehd: int = 2000
+
+    # extras
+    three_d: int = -10000
+    converted: int = -1000
+    documentary: int = -250
+    dubbed: int = -1000
+    edition: int = 100
+    hardcoded: int = 0
+    network: int = 0
+    proper: int = 20
+    repack: int = 20
+    retail: int = 0
+    site: int = -10000
+    subbed: int = 0
+    upscaled: int = -10000
+    scene: int = 0
+
+    # trash
+    cam: int = -10000
+    clean_audio: int = -10000
+    r5: int = -10000
+    satrip: int = -10000
+    screener: int = -10000
+    size: int = -10000
+    telecine: int = -10000
+    telesync: int = -10000
+    adult: int = -10000
 
 
-class BestRemuxRanking(BaseRankingModel):
-    uhd: int = 100
-    fhd: int = 60
-    hd: int = 40
-    sd: int = 20
-    dolby_video: int = 100
-    hdr: int = 80
-    hdr10: int = 90
-    dts_x: int = 100
-    dts_hd: int = 80
-    dts_hd_ma: int = 90
-    atmos: int = 90
-    truehd: int = 60
-    aac: int = 30
-    ac3: int = 20
-    remux: int = 150
-    webdl: int = -1000
-
-
-class BestWebRanking(BaseRankingModel):
-    uhd: int = 100
-    fhd: int = 90
-    hd: int = 80
-    sd: int = 20
-    dolby_video: int = 100
-    hdr: int = 80
-    hdr10: int = 90
-    aac: int = 50
-    ac3: int = 40
-    remux: int = -1000
-    webdl: int = 100
-
-
-class BestResolutionRanking(BaseRankingModel):
-    uhd: int = 100
-    fhd: int = 90
-    hd: int = 80
-    sd: int = 70
-    dolby_video: int = 100
-    hdr: int = 80
-    hdr10: int = 90
-    dts_x: int = 100
-    dts_hd: int = 80
-    dts_hd_ma: int = 90
-    atmos: int = 90
-    truehd: int = 60
-    ddplus: int = 90
-    aac: int = 30
-    ac3: int = 20
-    remux: int = 150
-    bluray: int = 120
-    webdl: int = -1000
-
-
-class BestOverallRanking(BaseRankingModel):
-    uhd: int = 100
-    fhd: int = 90
-    hd: int = 80
-    sd: int = 70
-    dolby_video: int = 100
-    hdr: int = 80
-    hdr10: int = 90
-    dts_x: int = 100
-    dts_hd: int = 80
-    dts_hd_ma: int = 90
-    atmos: int = 90
-    truehd: int = 60
-    ddplus: int = 40
-    aac: int = 30
-    ac3: int = 20
-    remux: int = 150
-    bluray: int = 120
-    webdl: int = 90
-
-
-class AnimeRanking(BaseRankingModel):
-    uhd: int = -1000
-    fhd: int = 90
-    hd: int = 80
-    sd: int = 20
-    aac: int = 70
-    ac3: int = 50
-    remux: int = -1000
-    webdl: int = 90
-    bluray: int = 50
-    dubbed: int = 100
-    subbed: int = 100
-
-
-class AllRanking(BaseRankingModel):
-    uhd: int = 2
-    fhd: int = 3
-    hd: int = 1
-    sd: int = 1
-    dolby_video: int = 1
-    hdr: int = 1
-    dts_x: int = 1
-    dts_hd: int = 1
-    dts_hd_ma: int = 1
-    atmos: int = 1
-    truehd: int = 1
-    ddplus: int = 1
-    aac: int = 2
-    ac3: int = 1
-    remux: int = 1
-    webdl: int = 1
-    bluray: int = 1
-
-
-riven_rank_models = {
-    "default":  DefaultRanking(),
+# Available ranking models
+rtn_rank_models = {
+    "default": DefaultRanking(),
+    "best": BestRanking(),
     "custom": BaseRankingModel(),
-    "remux":   BestRemuxRanking(),
-    "web":   BestWebRanking(),
-    "resolution":   BestResolutionRanking(),
-    "overall":   BestOverallRanking(),
-    "anime":   AnimeRanking(),
-    "all":   AllRanking(),
 }
 
 
@@ -261,14 +298,18 @@ def generate_initial_conf():
         require=[],
         exclude=[],
         preferred=[],
-        custom_ranks=CustomRanksConfig(
-            quality=QualityRankModel(),
-            rips=RipsRankModel(),
-            hdr=HdrRankModel(),
-            audio=AudioRankModel(),
-            extras=ExtrasRankModel(),
-            trash=TrashRankModel()
-        )
+        resolutions=ResolutionConfig(
+            # Enable common resolutions by default
+            r2160p=True,  # 4K
+            r1080p=True,  # 1080p
+            r720p=True,   # 720p
+            r480p=False,  # 480p
+            r360p=False,  # 360p
+            unknown=True  # Allow unknown resolutions
+        ),
+        options=OptionsConfig(),
+        languages=LanguagesConfig(),
+        custom_ranks=CustomRanksConfig()
     ).model_dump()
 
     return {
@@ -319,11 +360,23 @@ def get_settings_model(settings_model):
         trash=TrashRankModel(**settings_model.get('custom_ranks', {}).get('trash', {}))
     )
 
+    # Get resolution configuration
+    resolution_config = ResolutionConfig(**settings_model.get('resolutions', {}))
+
+    # Get options configuration
+    options_config = OptionsConfig(**settings_model.get('options', {}))
+
+    # Get languages configuration
+    languages_config = LanguagesConfig(**settings_model.get('languages', {}))
+
     return SettingsModel(
         profile=settings_model['profile'],
         require=settings_model['require'],
         exclude=settings_model['exclude'],
         preferred=settings_model['preferred'],
+        resolutions=resolution_config,
+        options=options_config,
+        languages=languages_config,
         custom_ranks=custom_ranks_config
     )
 
@@ -350,6 +403,7 @@ def render_settings():
     st.header('🛠️ Settings Configuration')
     st.markdown("""
     Configure your ranking preferences and filters. These settings will be used to evaluate and rank torrent names.
+    For more information, check out the [RTN documentation](https://github.com/dreulavelle/rank-torrent-name#readme).
     """)
 
     settings_tabs = st.tabs([
@@ -366,9 +420,9 @@ def render_settings():
             settings_model = st.session_state.conf['settings_model']
 
             remove_trash = st.checkbox(
-                "🗑️ Indicate trash titles",
+                "🗑️ Remove trash titles",
                 value=bool(st.session_state.conf['remove_trash']),
-                help="Checks if the title contains any unwanted patterns.")
+                help="Automatically remove titles containing trash patterns like CAM, TS, etc.")
 
             choices = ["default", "best", "custom"]
             profile = settings_model.get('profile', 'default')
@@ -376,7 +430,7 @@ def render_settings():
                 "📊 Rank Model Profile",
                 options=choices, 
                 index=choices.index(profile),
-                help="Select a predefined ranking profile that best matches your preferences.")
+                help="Select a predefined ranking profile:\n- default: Balanced quality and compatibility\n- best: Highest quality with focus on 4K/HDR\n- custom: Use your own custom ranks")
 
             submit = st.form_submit_button('💾 Save Core Settings')
             if submit:
@@ -389,9 +443,13 @@ def render_settings():
         with st.form("filters_form"):
             st.markdown("""
             ### Pattern Matching Filters
-            Configure regex patterns for filtering torrents. Patterns can be:
+            Configure regex patterns for filtering torrents. You can use:
             - Regular expressions (case-insensitive by default)
             - Case-sensitive patterns (enclosed in /pattern/)
+            
+            Examples:
+            - `BluRay|WEB-DL` - Match BluRay or WEB-DL (case-insensitive)
+            - `/SPARKS|DIMENSION/` - Match specific release groups (case-sensitive)
             """)
 
             col1, col2, col3 = st.columns(3)
@@ -403,7 +461,8 @@ def render_settings():
                     "One pattern per line",
                     value="\n".join(settings_model.get('require', [])),
                     height=200,
-                    key="required_patterns"
+                    key="required_patterns",
+                    help="Example: 1080p|2160p"
                 )
 
             with col2:
@@ -413,7 +472,8 @@ def render_settings():
                     "One pattern per line",
                     value="\n".join(settings_model.get('exclude', [])),
                     height=200,
-                    key="excluded_patterns"
+                    key="excluded_patterns",
+                    help="Example: CAM|TS|HDTS"
                 )
 
             with col3:
@@ -423,7 +483,8 @@ def render_settings():
                     "One pattern per line",
                     value="\n".join(settings_model.get('preferred', [])),
                     height=200,
-                    key="preferred_patterns"
+                    key="preferred_patterns",
+                    help="Example: BluRay|REMUX"
                 )
 
             submit = st.form_submit_button('💾 Save Filters')
@@ -718,8 +779,10 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
 
         if raw_title_text_input:
             try:
-                ranking_model = riven_rank_models.get(
-                    st.session_state.conf['settings_model']['profile'])
+                ranking_model = rtn_rank_models.get(
+                    st.session_state.conf['settings_model']['profile'],
+                    DefaultRanking()  # Default to DefaultRanking if profile not found
+                )
 
                 settings_model = get_settings_model(
                     st.session_state.conf['settings_model'])
@@ -732,7 +795,8 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                                    infohash=info_hash, 
                                    remove_trash=conf['remove_trash'])
 
-                col1, col2, col3 = st.columns(3)
+                # Main metrics
+                col1, col2, col3, col4 = st.columns(4)
                 
                 with col1:
                     st.metric("Rank Score", f"{torrent.rank:,}")
@@ -740,24 +804,94 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 with col2:
                     st.metric("Fetch Status", "✅ Yes" if torrent.fetch else "❌ No")
                 
-                parsed_data = parse(raw_title=raw_title_text_input)
-                
                 with col3:
-                    matches_preferred = calculate_preferred(parsed_data, settings_model) > 0
+                    matches_preferred = calculate_preferred(torrent.data, settings_model) > 0
                     st.metric("Preferred Boost", "✅ Yes" if matches_preferred else "❌ No")
+                
+                with col4:
+                    st.metric("Title Similarity", f"{torrent.lev_ratio:.2%}")
 
-                with st.expander("🔍 Detailed Analysis"):
+                # Detailed analysis in tabs
+                analysis_tabs = st.tabs([
+                    "📊 Overview",
+                    "🔍 Parsed Data",
+                    "⚡ Quality Analysis",
+                    "🎯 Pattern Matches"
+                ])
+
+                with analysis_tabs[0]:
                     col1, col2 = st.columns(2)
                     
                     with col1:
-                        matches_required = check_required(parsed_data, settings_model)
+                        st.markdown("### 📝 Basic Information")
+                        st.markdown(f"**Parsed Title:** {torrent.data.parsed_title}")
+                        st.markdown(f"**Year:** {torrent.data.year or 'N/A'}")
+                        st.markdown(f"**Type:** {torrent.data.type.title()}")
+                        if torrent.data.seasons:
+                            st.markdown(f"**Seasons:** {', '.join(map(str, torrent.data.seasons))}")
+                        if torrent.data.episodes:
+                            st.markdown(f"**Episodes:** {', '.join(map(str, torrent.data.episodes))}")
+                        if torrent.data.group:
+                            st.markdown(f"**Release Group:** {torrent.data.group}")
+                    
+                    with col2:
+                        st.markdown("### 🎥 Media Information")
+                        st.markdown(f"**Resolution:** {torrent.data.resolution}")
+                        if torrent.data.quality:
+                            st.markdown(f"**Quality:** {torrent.data.quality}")
+                        if torrent.data.codec:
+                            st.markdown(f"**Codec:** {torrent.data.codec}")
+                        if torrent.data.audio:
+                            st.markdown(f"**Audio:** {', '.join(torrent.data.audio)}")
+                        if torrent.data.hdr:
+                            st.markdown(f"**HDR:** {', '.join(torrent.data.hdr)}")
+
+                with analysis_tabs[1]:
+                    st.json(torrent.data.model_dump())
+
+                with analysis_tabs[2]:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("### 🎬 Video Quality")
+                        quality_attrs = {
+                            "Resolution": torrent.data.resolution,
+                            "Quality": torrent.data.quality,
+                            "Codec": torrent.data.codec,
+                            "Bit Depth": torrent.data.bit_depth,
+                            "HDR": ", ".join(torrent.data.hdr) if torrent.data.hdr else None
+                        }
+                        for attr, value in quality_attrs.items():
+                            if value:
+                                st.markdown(f"**{attr}:** {value}")
+                    
+                    with col2:
+                        st.markdown("### 🔊 Audio Quality")
+                        audio_attrs = {
+                            "Audio Codecs": ", ".join(torrent.data.audio) if torrent.data.audio else None,
+                            "Channels": ", ".join(torrent.data.channels) if torrent.data.channels else None
+                        }
+                        for attr, value in audio_attrs.items():
+                            if value:
+                                st.markdown(f"**{attr}:** {value}")
+                        
+                        if torrent.data.dubbed:
+                            st.markdown("**Dubbed:** ✅")
+                        if torrent.data.subbed:
+                            st.markdown("**Subbed:** ✅")
+
+                with analysis_tabs[3]:
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        matches_required = check_required(torrent.data, settings_model)
                         st.markdown(
                             f"**Required Patterns:** {emoji_bool(matches_required)}",
                             help="Check if the title meets the required patterns"
                         )
 
                         failed_keys = []
-                        matches_exclude = check_exclude(parsed_data, settings_model, failed_keys)
+                        matches_exclude = check_exclude(torrent.data, settings_model, failed_keys)
                         st.markdown(
                             f"**Excluded Patterns:** {emoji_bool(not matches_exclude)}",
                             help="Check if the title contains excluded patterns"
@@ -768,11 +902,22 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                                 st.markdown(f"- `{key}`")
                     
                     with col2:
-                        st.markdown("**Parsed Attributes:**")
-                        parsed_dict = dict(parsed_data)
-                        for key, value in parsed_dict.items():
+                        st.markdown("### 🚩 Special Flags")
+                        flags = {
+                            "Extended": torrent.data.extended,
+                            "Converted": torrent.data.converted,
+                            "Hardcoded": torrent.data.hardcoded,
+                            "Proper": torrent.data.proper,
+                            "Repack": torrent.data.repack,
+                            "Retail": torrent.data.retail,
+                            "Remastered": torrent.data.remastered,
+                            "Unrated": torrent.data.unrated,
+                            "Documentary": torrent.data.documentary,
+                            "Scene Release": torrent.data.scene
+                        }
+                        for flag, value in flags.items():
                             if value:
-                                st.markdown(f"- `{key}`: {value}")
+                                st.markdown(f"- {flag}")
 
             except Exception as err:
                 st.error(f"❌ Error: {str(err)}")
@@ -785,7 +930,7 @@ def render_preset_profiles():
     Each profile has different ranking weights optimized for specific use cases.
     """)
     
-    for name, rank_model in riven_rank_models.items():
+    for name, rank_model in rtn_rank_models.items():
         with st.expander(f"📋 {name.title()} Profile"):
             st.json(dict(rank_model))
 
