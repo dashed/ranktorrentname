@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from typing import List, Dict
 from importlib.metadata import version
 import lzstring
+import regex
 
 # Get RTN version
 try:
@@ -549,76 +550,160 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
             Configure regex patterns for filtering torrents. You can use:
             - Regular expressions (case-insensitive by default)
             - Case-sensitive patterns (enclosed in /pattern/)
-            - Multiple patterns (one per line)
+            - Add patterns one at a time with the form below
             
             Examples:
             - `BluRay|WEB-DL` - Match BluRay or WEB-DL (case-insensitive)
             - `/SPARKS|DIMENSION/` - Match specific release groups (case-sensitive)
             - `1080p|2160p` - Match common resolutions
             - `/^(?!.*\bCAM\b).*/` - Exclude titles containing "CAM"
-            
-            #### Case Sensitivity
-            By default, all patterns are case-insensitive. To make a pattern case-sensitive:
-            1. Enclose it in forward slashes: `/PATTERN/`
-            2. The pattern will match exactly as written
-            
-            Examples:
-            - `web-dl` matches "WEB-DL", "Web-DL", "web-dl"
-            - `/WEB-DL/` only matches "WEB-DL"
-            - `/\[TGx\]/` only matches "[TGx]"
             """)
 
+            # Pattern testing section
+            st.markdown("### 🧪 Test Your Pattern")
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                test_pattern = st.text_input(
+                    "Enter a pattern to test",
+                    help="Enter a regex pattern. Enclose in /pattern/ for case-sensitive matching."
+                )
+            with col2:
+                test_case_sensitive = st.checkbox("Case Sensitive", value=False)
+            
+            test_string = st.text_input(
+                "Test string",
+                help="Enter a string to test your pattern against"
+            )
+            
+            if test_pattern and test_string:
+                try:
+                    if test_case_sensitive:
+                        pattern = regex.compile(test_pattern.strip('/'))
+                    else:
+                        pattern = regex.compile(test_pattern, regex.IGNORECASE)
+                    
+                    match = pattern.search(test_string)
+                    if match:
+                        st.success(f"✅ Pattern matches! Found: {match.group(0)}")
+                    else:
+                        st.error("❌ Pattern does not match")
+                except Exception as e:
+                    st.error(f"❌ Invalid regex pattern: {str(e)}")
+            
+            st.markdown("---")
+            
+            # Pattern management
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.markdown("#### Required Patterns")
                 st.markdown("Patterns that must be present")
-                required_patterns = st.text_area(
-                    "One pattern per line",
-                    value="\n".join(settings_model.get('require', [])),
-                    height=200,
-                    key="required_patterns",
-                    help=r"""Examples:
-- 1080p|2160p
-- /SPARKS|DIMENSION/
-- BluRay|WEB-DL"""
+                current_required = settings_model.get('require', [])
+                
+                # Display current patterns
+                for i, pattern in enumerate(current_required):
+                    st.code(pattern)
+                
+                # Add new pattern
+                new_required = st.text_input("Add required pattern", key="new_required")
+                delete_required = st.radio(
+                    "Select pattern to delete",
+                    options=["None"] + [f"Pattern {i+1}" for i in range(len(current_required))],
+                    key="delete_required",
+                    index=0,
+                    horizontal=True
                 )
 
             with col2:
                 st.markdown("#### Excluded Patterns")
                 st.markdown("Patterns that must not be present")
-                excluded_patterns = st.text_area(
-                    "One pattern per line",
-                    value="\n".join(settings_model.get('exclude', [])),
-                    height=200,
-                    key="excluded_patterns",
-                    help=r"""Examples:
-- CAM|TS|HDTS
-- /\[TGx\]/
-- /^(?!.*\bHDR\b).*/"""
+                current_excluded = settings_model.get('exclude', [])
+                
+                # Display current patterns
+                for i, pattern in enumerate(current_excluded):
+                    st.code(pattern)
+                
+                # Add new pattern
+                new_excluded = st.text_input("Add excluded pattern", key="new_excluded")
+                delete_excluded = st.radio(
+                    "Select pattern to delete",
+                    options=["None"] + [f"Pattern {i+1}" for i in range(len(current_excluded))],
+                    key="delete_excluded",
+                    index=0,
+                    horizontal=True
                 )
 
             with col3:
                 st.markdown("#### Preferred Patterns")
                 st.markdown("Patterns that give a rank boost")
-                preferred_patterns = st.text_area(
-                    "One pattern per line",
-                    value="\n".join(settings_model.get('preferred', [])),
-                    height=200,
-                    key="preferred_patterns",
-                    help=r"""Examples:
-- BluRay|REMUX
-- /\[SPARKS\]/
-- HDR|DV"""
+                current_preferred = settings_model.get('preferred', [])
+                
+                # Display current patterns
+                for i, pattern in enumerate(current_preferred):
+                    st.code(pattern)
+                
+                # Add new pattern
+                new_preferred = st.text_input("Add preferred pattern", key="new_preferred")
+                delete_preferred = st.radio(
+                    "Select pattern to delete",
+                    options=["None"] + [f"Pattern {i+1}" for i in range(len(current_preferred))],
+                    key="delete_preferred",
+                    index=0,
+                    horizontal=True
                 )
 
-            submit = st.form_submit_button('💾 Save Filters')
+            # Common patterns suggestions
+            with st.expander("📚 Common Pattern Examples"):
+                st.markdown("""
+                ### Required Patterns
+                - `1080p|2160p` - Match common HD resolutions
+                - `BluRay|WEB-DL` - Match common source types
+                - `/SPARKS|DIMENSION/` - Match specific release groups (case-sensitive)
+                
+                ### Excluded Patterns
+                - `CAM|TS|HDTS` - Exclude low quality releases
+                - `/\\[TGx\\]/` - Exclude specific release group (case-sensitive)
+                - `LQ|LOW.?QUALITY` - Exclude low quality indicators
+                
+                ### Preferred Patterns
+                - `BluRay|REMUX` - Prefer high quality sources
+                - `HDR|DV` - Prefer HDR content
+                - `/\\bS\\d+/` - Prefer season numbering format
+                """)
+
+            submit = st.form_submit_button('💾 Save Changes')
             if submit:
-                settings_model['require'] = [p for p in required_patterns.split('\n') if p.strip()]
-                settings_model['exclude'] = [p for p in excluded_patterns.split('\n') if p.strip()]
-                settings_model['preferred'] = [p for p in preferred_patterns.split('\n') if p.strip()]
+                # Handle pattern additions
+                if new_required:
+                    current_required.append(new_required)
+                if new_excluded:
+                    current_excluded.append(new_excluded)
+                if new_preferred:
+                    current_preferred.append(new_preferred)
+                
+                # Handle pattern deletions
+                if delete_required != "None":
+                    index = int(delete_required.split()[-1]) - 1
+                    if 0 <= index < len(current_required):
+                        current_required.pop(index)
+                
+                if delete_excluded != "None":
+                    index = int(delete_excluded.split()[-1]) - 1
+                    if 0 <= index < len(current_excluded):
+                        current_excluded.pop(index)
+                
+                if delete_preferred != "None":
+                    index = int(delete_preferred.split()[-1]) - 1
+                    if 0 <= index < len(current_preferred):
+                        current_preferred.pop(index)
+                
+                # Update settings
+                settings_model['require'] = current_required
+                settings_model['exclude'] = current_excluded
+                settings_model['preferred'] = current_preferred
                 save_conf_to_query_params()
-                st.success("✅ Filters saved!")
+                st.success("✅ Changes saved!")
+                st.rerun()
 
     with settings_tabs[2]:
         with st.form("languages_form"):
