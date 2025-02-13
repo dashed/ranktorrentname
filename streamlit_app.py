@@ -12,6 +12,7 @@ import json
 from pydantic import BaseModel
 from typing import List, Dict
 from importlib.metadata import version
+import lzstring
 
 # Get RTN version
 try:
@@ -69,6 +70,28 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Initialize LZString compressor
+lz = lzstring.LZString()
+
+def compress_string(string: str) -> str:
+    """Compress a string using LZString and make it URL safe."""
+    try:
+        # Use compressToEncodedURIComponent instead of compressToBase64
+        compressed = lz.compressToEncodedURIComponent(string)
+        if compressed:
+            return compressed
+        return string
+    except Exception:
+        return string
+
+def decompress_string(string: str, default_value: str = '') -> str:
+    """Decompress a URL-safe LZString compressed string."""
+    try:
+        decompressed = lz.decompressFromEncodedURIComponent(string)
+        return decompressed if decompressed else default_value
+    except Exception:
+        return default_value
 
 # -----------------------------------------------------------------------------
 # Sidebar navigation and info
@@ -323,27 +346,91 @@ def generate_initial_conf():
 
 
 def save_conf_to_query_params():
+    """Save the current configuration to URL query parameters with compression."""
     if 'conf' not in st.session_state:
         return
-    st.query_params['conf'] = json.dumps(st.session_state.conf)
-    # st.rerun()
+    
+    try:
+        # Convert configuration to JSON string with compact encoding
+        conf_json = json.dumps(st.session_state.conf, separators=(',', ':'))
+        
+        # Compress the JSON string and save to query params
+        st.query_params['conf'] = compress_string(conf_json)
+        
+    except Exception as e:
+        st.error(f"Failed to save configuration to URL: {str(e)}")
+
+
+def validate_conf(conf):
+    """Validate the configuration structure and return a valid conf."""
+    default_conf = generate_initial_conf()
+    
+    if not isinstance(conf, dict):
+        return default_conf
+        
+    # Ensure required top-level keys exist
+    required_keys = {'titles', 'remove_trash', 'settings_model'}
+    if not all(key in conf for key in required_keys):
+        return default_conf
+        
+    # Validate titles array
+    if not isinstance(conf.get('titles'), list):
+        conf['titles'] = default_conf['titles']
+    
+    # Ensure each title has required structure
+    for i, title in enumerate(conf['titles']):
+        if not isinstance(title, dict) or 'raw_title' not in title or 'correct_title' not in title:
+            conf['titles'][i] = {"raw_title": "", "correct_title": ""}
+            
+    # Ensure remove_trash is boolean
+    conf['remove_trash'] = bool(conf.get('remove_trash', True))
+    
+    # Validate settings_model structure
+    if not isinstance(conf.get('settings_model'), dict):
+        conf['settings_model'] = default_conf['settings_model']
+        
+    return conf
 
 
 def load_conf_from_query_params():
-    initial_bootstrap = False
-    conf = st.query_params.get("conf")
-    if not conf:
-        conf = generate_initial_conf()
-        initial_bootstrap = True
-    else:
-        try:
-            conf = json.loads(conf)
-        except Exception:
-            pass
-
-    st.session_state['conf'] = conf
-    if initial_bootstrap:
-        save_conf_to_query_params()
+    """Load configuration from URL query parameters with decompression and validation."""
+    try:
+        # Get configuration from query parameters
+        compressed_conf = st.query_params.get("conf")
+        
+        if not compressed_conf:
+            # No configuration in URL, use default
+            conf = generate_initial_conf()
+            initial_bootstrap = True
+        else:
+            try:
+                # Decompress and parse JSON configuration
+                conf_json = decompress_string(compressed_conf)
+                if not conf_json:
+                    raise ValueError("Failed to decompress configuration")
+                    
+                conf = json.loads(conf_json)
+                initial_bootstrap = False
+            except (json.JSONDecodeError, ValueError) as e:
+                # Invalid JSON or decompression failed, use default
+                st.error(f"Invalid configuration in URL: {str(e)}. Using default settings.")
+                conf = generate_initial_conf()
+                initial_bootstrap = True
+                
+        # Validate configuration structure
+        conf = validate_conf(conf)
+        
+        # Update session state
+        st.session_state['conf'] = conf
+        
+        # Save validated configuration back to URL if this is initial bootstrap
+        if initial_bootstrap:
+            save_conf_to_query_params()
+            
+    except Exception as e:
+        st.error(f"Error loading configuration: {str(e)}")
+        # Fallback to default configuration
+        st.session_state['conf'] = generate_initial_conf()
 
 
 load_conf_from_query_params()

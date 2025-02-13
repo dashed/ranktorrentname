@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "lzstring>=1.0.4",
     "pydantic>=2.10.6",
     "rank-torrent-name>=1.6.0",
     "streamlit>=1.42.0",
