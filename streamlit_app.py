@@ -865,6 +865,9 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 save_conf_to_query_params()
 
         if raw_title_text_input:
+            torrent = None
+            error_occurred = False
+            
             try:
                 ranking_model = rtn_rank_models.get(
                     st.session_state.conf['settings_model']['profile'],
@@ -882,21 +885,30 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                                    infohash=info_hash, 
                                    remove_trash=conf['remove_trash'])
 
-                # Main metrics
-                col1, col2, col3, col4 = st.columns(4)
-                
-                with col1:
-                    st.metric("Rank Score", f"{torrent.rank:,}")
-                
-                with col2:
-                    st.metric("Fetch Status", "✅ Yes" if torrent.fetch else "❌ No")
-                
-                with col3:
-                    matches_preferred = calculate_preferred(torrent.data, settings_model) > 0
-                    st.metric("Preferred Boost", "✅ Yes" if matches_preferred else "❌ No")
-                
-                with col4:
-                    st.metric("Title Similarity", f"{torrent.lev_ratio:.2%}")
+            except Exception as err:
+                error_occurred = True
+                st.error(f"❌ Error during ranking: {str(err)}")
+
+            # Show metrics if we have torrent data
+            if torrent:
+                try:
+                    # Main metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    
+                    with col1:
+                        st.metric("Rank Score", f"{torrent.rank:,}")
+                    
+                    with col2:
+                        st.metric("Fetch Status", "✅ Yes" if torrent.fetch else "❌ No")
+                    
+                    with col3:
+                        matches_preferred = calculate_preferred(torrent.data, settings_model) > 0
+                        st.metric("Preferred Boost", "✅ Yes" if matches_preferred else "❌ No")
+                    
+                    with col4:
+                        st.metric("Title Similarity", f"{torrent.lev_ratio:.2%}")
+                except Exception as err:
+                    st.error(f"❌ Error displaying metrics: {str(err)}")
 
                 # Detailed analysis in tabs
                 analysis_tabs = st.tabs([
@@ -907,107 +919,116 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                 ])
 
                 with analysis_tabs[0]:
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown("### 📝 Basic Information")
-                        st.markdown(f"**Parsed Title:** {torrent.data.parsed_title}")
-                        st.markdown(f"**Year:** {torrent.data.year or 'N/A'}")
-                        st.markdown(f"**Type:** {torrent.data.type.title()}")
-                        if torrent.data.seasons:
-                            st.markdown(f"**Seasons:** {', '.join(map(str, torrent.data.seasons))}")
-                        if torrent.data.episodes:
-                            st.markdown(f"**Episodes:** {', '.join(map(str, torrent.data.episodes))}")
-                        if torrent.data.group:
-                            st.markdown(f"**Release Group:** {torrent.data.group}")
-                    
-                    with col2:
-                        st.markdown("### 🎥 Media Information")
-                        st.markdown(f"**Resolution:** {torrent.data.resolution}")
-                        if torrent.data.quality:
-                            st.markdown(f"**Quality:** {torrent.data.quality}")
-                        if torrent.data.codec:
-                            st.markdown(f"**Codec:** {torrent.data.codec}")
-                        if torrent.data.audio:
-                            st.markdown(f"**Audio:** {', '.join(torrent.data.audio)}")
-                        if torrent.data.hdr:
-                            st.markdown(f"**HDR:** {', '.join(torrent.data.hdr)}")
+                    try:
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.markdown("### 📝 Basic Information")
+                            st.markdown(f"**Parsed Title:** {torrent.data.parsed_title}")
+                            st.markdown(f"**Year:** {torrent.data.year or 'N/A'}")
+                            st.markdown(f"**Type:** {torrent.data.type.title()}")
+                            if torrent.data.seasons:
+                                st.markdown(f"**Seasons:** {', '.join(map(str, torrent.data.seasons))}")
+                            if torrent.data.episodes:
+                                st.markdown(f"**Episodes:** {', '.join(map(str, torrent.data.episodes))}")
+                            if torrent.data.group:
+                                st.markdown(f"**Release Group:** {torrent.data.group}")
+                        
+                        with col2:
+                            st.markdown("### 🎥 Media Information")
+                            st.markdown(f"**Resolution:** {torrent.data.resolution}")
+                            if torrent.data.quality:
+                                st.markdown(f"**Quality:** {torrent.data.quality}")
+                            if torrent.data.codec:
+                                st.markdown(f"**Codec:** {torrent.data.codec}")
+                            if torrent.data.audio:
+                                st.markdown(f"**Audio:** {', '.join(torrent.data.audio)}")
+                            if torrent.data.hdr:
+                                st.markdown(f"**HDR:** {', '.join(torrent.data.hdr)}")
+                    except Exception as err:
+                        st.error(f"❌ Error displaying overview: {str(err)}")
 
                 with analysis_tabs[1]:
-                    st.json(torrent.data.model_dump())
+                    try:
+                        st.json(torrent.data.model_dump())
+                    except Exception as err:
+                        st.error(f"❌ Error displaying parsed data: {str(err)}")
 
                 with analysis_tabs[2]:
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        st.markdown("### 🎬 Video Quality")
-                        quality_attrs = {
-                            "Resolution": torrent.data.resolution,
-                            "Quality": torrent.data.quality,
-                            "Codec": torrent.data.codec,
-                            "Bit Depth": torrent.data.bit_depth,
-                            "HDR": ", ".join(torrent.data.hdr) if torrent.data.hdr else None
-                        }
-                        for attr, value in quality_attrs.items():
-                            if value:
-                                st.markdown(f"**{attr}:** {value}")
-                    
-                    with col2:
-                        st.markdown("### 🔊 Audio Quality")
-                        audio_attrs = {
-                            "Audio Codecs": ", ".join(torrent.data.audio) if torrent.data.audio else None,
-                            "Channels": ", ".join(torrent.data.channels) if torrent.data.channels else None
-                        }
-                        for attr, value in audio_attrs.items():
-                            if value:
-                                st.markdown(f"**{attr}:** {value}")
+                    try:
+                        col1, col2 = st.columns(2)
                         
-                        if torrent.data.dubbed:
-                            st.markdown("**Dubbed:** ✅")
-                        if torrent.data.subbed:
-                            st.markdown("**Subbed:** ✅")
+                        with col1:
+                            st.markdown("### 🎬 Video Quality")
+                            quality_attrs = {
+                                "Resolution": torrent.data.resolution,
+                                "Quality": torrent.data.quality,
+                                "Codec": torrent.data.codec,
+                                "Bit Depth": torrent.data.bit_depth,
+                                "HDR": ", ".join(torrent.data.hdr) if torrent.data.hdr else None
+                            }
+                            for attr, value in quality_attrs.items():
+                                if value:
+                                    st.markdown(f"**{attr}:** {value}")
+                        
+                        with col2:
+                            st.markdown("### 🔊 Audio Quality")
+                            audio_attrs = {
+                                "Audio Codecs": ", ".join(torrent.data.audio) if torrent.data.audio else None,
+                                "Channels": ", ".join(torrent.data.channels) if torrent.data.channels else None
+                            }
+                            for attr, value in audio_attrs.items():
+                                if value:
+                                    st.markdown(f"**{attr}:** {value}")
+                            
+                            if torrent.data.dubbed:
+                                st.markdown("**Dubbed:** ✅")
+                            if torrent.data.subbed:
+                                st.markdown("**Subbed:** ✅")
+                    except Exception as err:
+                        st.error(f"❌ Error displaying quality analysis: {str(err)}")
 
                 with analysis_tabs[3]:
-                    col1, col2 = st.columns(2)
-                    
-                    with col1:
-                        matches_required = check_required(torrent.data, settings_model)
-                        st.markdown(
-                            f"**Required Patterns:** {emoji_bool(matches_required)}",
-                            help="Check if the title meets the required patterns"
-                        )
+                    try:
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            matches_required = check_required(torrent.data, settings_model)
+                            st.markdown(
+                                f"**Required Patterns:** {emoji_bool(matches_required)}",
+                                help="Check if the title meets the required patterns"
+                            )
 
-                        failed_keys = []
-                        matches_exclude = check_exclude(torrent.data, settings_model, failed_keys)
-                        st.markdown(
-                            f"**Excluded Patterns:** {emoji_bool(not matches_exclude)}",
-                            help="Check if the title contains excluded patterns"
-                        )
-                        if failed_keys:
-                            st.markdown("**Failed Exclude Patterns:**")
-                            for key in failed_keys:
-                                st.markdown(f"- `{key}`")
-                    
-                    with col2:
-                        st.markdown("### 🚩 Special Flags")
-                        flags = {
-                            "Extended": torrent.data.extended,
-                            "Converted": torrent.data.converted,
-                            "Hardcoded": torrent.data.hardcoded,
-                            "Proper": torrent.data.proper,
-                            "Repack": torrent.data.repack,
-                            "Retail": torrent.data.retail,
-                            "Remastered": torrent.data.remastered,
-                            "Unrated": torrent.data.unrated,
-                            "Documentary": torrent.data.documentary,
-                            "Scene Release": torrent.data.scene
-                        }
-                        for flag, value in flags.items():
-                            if value:
-                                st.markdown(f"- {flag}")
-
-            except Exception as err:
-                st.error(f"❌ Error: {str(err)}")
+                            failed_keys = []
+                            matches_exclude = check_exclude(torrent.data, settings_model, failed_keys)
+                            st.markdown(
+                                f"**Excluded Patterns:** {emoji_bool(not matches_exclude)}",
+                                help="Check if the title contains excluded patterns"
+                            )
+                            if failed_keys:
+                                st.markdown("**Failed Exclude Patterns:**")
+                                for key in failed_keys:
+                                    st.markdown(f"- `{key}`")
+                        
+                        with col2:
+                            st.markdown("### 🚩 Special Flags")
+                            flags = {
+                                "Extended": torrent.data.extended,
+                                "Converted": torrent.data.converted,
+                                "Hardcoded": torrent.data.hardcoded,
+                                "Proper": torrent.data.proper,
+                                "Repack": torrent.data.repack,
+                                "Retail": torrent.data.retail,
+                                "Remastered": torrent.data.remastered,
+                                "Unrated": torrent.data.unrated,
+                                "Documentary": torrent.data.documentary,
+                                "Scene Release": torrent.data.scene
+                            }
+                            for flag, value in flags.items():
+                                if value:
+                                    st.markdown(f"- {flag}")
+                    except Exception as err:
+                        st.error(f"❌ Error displaying pattern matches: {str(err)}")
 
 
 def render_preset_profiles():
