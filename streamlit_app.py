@@ -544,7 +544,7 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
 
     with settings_tabs[1]:
         with st.form("filters_form"):
-            st.markdown("""
+            st.markdown(r"""
             ### Pattern Matching Filters
             Configure regex patterns for filtering torrents. You can use:
             - Regular expressions (case-insensitive by default)
@@ -578,7 +578,7 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                     value="\n".join(settings_model.get('require', [])),
                     height=200,
                     key="required_patterns",
-                    help="""Examples:
+                    help=r"""Examples:
 - 1080p|2160p
 - /SPARKS|DIMENSION/
 - BluRay|WEB-DL"""
@@ -592,7 +592,7 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                     value="\n".join(settings_model.get('exclude', [])),
                     height=200,
                     key="excluded_patterns",
-                    help="""Examples:
+                    help=r"""Examples:
 - CAM|TS|HDTS
 - /\[TGx\]/
 - /^(?!.*\bHDR\b).*/"""
@@ -606,7 +606,7 @@ Note: Profiles are meant to be a starting point. You should fine-tune the settin
                     value="\n".join(settings_model.get('preferred', [])),
                     height=200,
                     key="preferred_patterns",
-                    help="""Examples:
+                    help=r"""Examples:
 - BluRay|REMUX
 - /\[SPARKS\]/
 - HDR|DV"""
@@ -1208,6 +1208,24 @@ def render_preset_profiles():
     The tables below show the exact ranking values for each attribute in each profile.
     These values determine how torrents are scored during ranking.
     """)
+    
+    # Display raw JSON data for each profile
+    st.subheader("🔍 Raw Profile Data")
+    profile_tabs = st.tabs(["Default Profile", "Best Profile", "Custom Profile"])
+    
+    with profile_tabs[0]:
+        st.markdown("### Default Profile JSON")
+        st.json(dict(DefaultRanking()))
+        
+    with profile_tabs[1]:
+        st.markdown("### Best Profile JSON")
+        st.json(dict(BestRanking()))
+        
+    with profile_tabs[2]:
+        st.markdown("### Custom Profile JSON")
+        st.json(dict(BaseRankingModel()))
+    
+    st.markdown("---")
     
     # Quality Rankings
     st.subheader("🎥 Quality Rankings")
