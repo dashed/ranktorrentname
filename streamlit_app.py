@@ -517,7 +517,23 @@ def render_settings():
                 "📊 Rank Model Profile",
                 options=choices, 
                 index=choices.index(profile),
-                help="Select a predefined ranking profile:\n- default: Balanced quality and compatibility\n- best: Highest quality with focus on 4K/HDR\n- custom: Use your own custom ranks")
+                help="""Select a predefined ranking profile:
+
+- **default**: Optimized for streaming without transcoding
+  - Excludes remuxes
+  - Limits resolutions to 1080p and 720p
+  - Ideal for users who want high-quality content that doesn't require transcoding on most devices
+
+- **best**: Aimed at obtaining the highest quality content available
+  - Includes all resolutions, including 4K/2160p
+  - Prioritizes remuxes and high-bitrate encodes
+  - Perfect for users with powerful hardware who prioritize quality over compatibility
+
+- **custom**: Start with a blank profile and customize everything
+  - All ranks start at 0
+  - Perfect for creating your own custom ranking system
+  
+Note: Profiles are meant to be a starting point. You should fine-tune the settings to your specific needs.""")
 
             submit = st.form_submit_button('💾 Save Core Settings')
             if submit:
@@ -533,10 +549,23 @@ def render_settings():
             Configure regex patterns for filtering torrents. You can use:
             - Regular expressions (case-insensitive by default)
             - Case-sensitive patterns (enclosed in /pattern/)
+            - Multiple patterns (one per line)
             
             Examples:
             - `BluRay|WEB-DL` - Match BluRay or WEB-DL (case-insensitive)
             - `/SPARKS|DIMENSION/` - Match specific release groups (case-sensitive)
+            - `1080p|2160p` - Match common resolutions
+            - `/^(?!.*\bCAM\b).*/` - Exclude titles containing "CAM"
+            
+            #### Case Sensitivity
+            By default, all patterns are case-insensitive. To make a pattern case-sensitive:
+            1. Enclose it in forward slashes: `/PATTERN/`
+            2. The pattern will match exactly as written
+            
+            Examples:
+            - `web-dl` matches "WEB-DL", "Web-DL", "web-dl"
+            - `/WEB-DL/` only matches "WEB-DL"
+            - `/\[TGx\]/` only matches "[TGx]"
             """)
 
             col1, col2, col3 = st.columns(3)
@@ -549,7 +578,10 @@ def render_settings():
                     value="\n".join(settings_model.get('require', [])),
                     height=200,
                     key="required_patterns",
-                    help="Example: 1080p|2160p"
+                    help="""Examples:
+- 1080p|2160p
+- /SPARKS|DIMENSION/
+- BluRay|WEB-DL"""
                 )
 
             with col2:
@@ -560,7 +592,10 @@ def render_settings():
                     value="\n".join(settings_model.get('exclude', [])),
                     height=200,
                     key="excluded_patterns",
-                    help="Example: CAM|TS|HDTS"
+                    help="""Examples:
+- CAM|TS|HDTS
+- /\[TGx\]/
+- /^(?!.*\bHDR\b).*/"""
                 )
 
             with col3:
@@ -571,7 +606,10 @@ def render_settings():
                     value="\n".join(settings_model.get('preferred', [])),
                     height=200,
                     key="preferred_patterns",
-                    help="Example: BluRay|REMUX"
+                    help="""Examples:
+- BluRay|REMUX
+- /\[SPARKS\]/
+- HDR|DV"""
                 )
 
             submit = st.form_submit_button('💾 Save Filters')
@@ -584,36 +622,67 @@ def render_settings():
 
     with settings_tabs[2]:
         with st.form("languages_form"):
-            st.markdown("### Language Settings")
+            st.markdown("""
+            ### Language Settings
+            Configure language preferences using ISO 639-1 two-letter language codes. RTN supports a wide range of languages and allows you to:
+            - Require specific languages
+            - Exclude unwanted languages
+            - Give preference to certain languages
+            
+            Common language codes:
+            | Code | Language   | Code | Language   | Code | Language   |
+            |------|------------|------|------------|------|------------|
+            | `en`   | English    | `es`   | Spanish    | `fr`   | French     |
+            | `de`   | German     | `it`   | Italian    | `ja`   | Japanese   |
+            | `ko`   | Korean     | `zh`   | Chinese    | `ru`   | Russian    |
+            | `pt`   | Portuguese | `hi`   | Hindi      | `ar`   | Arabic     |
+            
+            [View full language list](https://github.com/dreulavelle/rank-torrent-name/blob/main/docs/users/languages.md)
+            """)
+            
             languages_config = settings_model.get('languages', {})
             
             col1, col2, col3 = st.columns(3)
             
             with col1:
                 st.markdown("#### Required Languages")
+                st.markdown("Languages that must be present")
                 required_langs = st.text_area(
                     "One language code per line",
                     value="\n".join(languages_config.get('required', [])),
                     height=200,
-                    help="Language codes that must be present (e.g., en, es, fr)"
+                    help="""Example:
+- en
+- ja
+- ko"""
                 )
 
             with col2:
                 st.markdown("#### Excluded Languages")
+                st.markdown("Languages that must not be present")
+                default_excludes = ["ar", "hi", "fr", "es", "de", "ru", "pt", "it"]
                 excluded_langs = st.text_area(
                     "One language code per line",
-                    value="\n".join(languages_config.get('exclude', [])),
+                    value="\n".join(languages_config.get('exclude', default_excludes)),
                     height=200,
-                    help="Language codes to exclude"
+                    help=f"""Default exclusions: {', '.join(default_excludes)}
+
+Example:
+- ar
+- hi
+- fr"""
                 )
 
             with col3:
                 st.markdown("#### Preferred Languages")
+                st.markdown("Languages that get a rank boost")
                 preferred_langs = st.text_area(
                     "One language code per line",
                     value="\n".join(languages_config.get('preferred', [])),
                     height=200,
-                    help="Language codes that get a rank boost"
+                    help="""Example:
+- en
+- ja"""
                 )
 
             submit = st.form_submit_button('💾 Save Language Settings')
@@ -628,21 +697,43 @@ def render_settings():
 
     with settings_tabs[3]:
         with st.form("resolutions_form"):
-            st.markdown("### Resolution Settings")
+            st.markdown("""
+            ### Resolution Settings
+            Enable or disable specific resolutions that RTN should consider when ranking torrents.
+            
+            Default configuration:
+            - 4K/2160p: Disabled by default (for compatibility)
+            - 1080p: Enabled by default (recommended)
+            - 720p: Enabled by default (acceptable quality)
+            - 480p: Disabled by default (low quality)
+            - 360p: Disabled by default (very low quality)
+            - Unknown: Enabled by default (for unspecified resolutions)
+            
+            Note: These settings only affect which resolutions are considered during ranking.
+            The actual ranking values are determined by the profile and custom ranks.
+            """)
+            
             resolutions_config = settings_model.get('resolutions', {})
             
             col1, col2 = st.columns(2)
             
             with col1:
-                st.markdown("#### Enable/Disable Resolutions")
-                r2160p = st.checkbox("4K/2160p", value=resolutions_config.get('r2160p', False))
-                r1080p = st.checkbox("1080p", value=resolutions_config.get('r1080p', True))
-                r720p = st.checkbox("720p", value=resolutions_config.get('r720p', True))
+                st.markdown("#### High Definition")
+                r2160p = st.checkbox("4K/2160p", value=resolutions_config.get('r2160p', False),
+                                   help="Ultra HD / 4K resolution (3840×2160)")
+                r1080p = st.checkbox("1080p", value=resolutions_config.get('r1080p', True),
+                                   help="Full HD resolution (1920×1080)")
+                r720p = st.checkbox("720p", value=resolutions_config.get('r720p', True),
+                                   help="HD resolution (1280×720)")
                 
             with col2:
-                r480p = st.checkbox("480p", value=resolutions_config.get('r480p', False))
-                r360p = st.checkbox("360p", value=resolutions_config.get('r360p', False))
-                unknown = st.checkbox("Unknown", value=resolutions_config.get('unknown', True))
+                st.markdown("#### Standard Definition & Other")
+                r480p = st.checkbox("480p", value=resolutions_config.get('r480p', False),
+                                   help="SD resolution (854×480)")
+                r360p = st.checkbox("360p", value=resolutions_config.get('r360p', False),
+                                   help="Low resolution (640×360)")
+                unknown = st.checkbox("Unknown", value=resolutions_config.get('unknown', True),
+                                   help="Allow torrents with unspecified resolution")
 
             submit = st.form_submit_button('💾 Save Resolution Settings')
             if submit:
@@ -725,27 +816,62 @@ def render_settings():
                 st.success("✅ Options saved!")
 
     with settings_tabs[5]:
-        st.markdown("### Custom Rank Settings")
         st.markdown("""
-        Fine-tune ranking values for specific attributes. Enable custom ranks to override the profile's default values.
-        Each attribute can be configured with:
-        - **Fetch**: Whether to look for this attribute
-        - **Rank**: The ranking score for this attribute
+        ### Custom Rank Settings
+        Fine-tune ranking values for specific attributes. Each attribute can be configured with:
+        
+        - **Fetch**: Whether to look for this attribute (affects filtering)
+        - **Rank**: The ranking score for this attribute (-10000 to 10000)
         - **Override**: Enable to use custom rank instead of profile default
+        
+        Notes:
+        - Disabled attributes (Fetch = False) will cause torrents with that attribute to be filtered out
+        - The Override option lets you use your custom rank value instead of the profile's value
+        - Rank values: Positive = preferred, Negative = undesired, 0 = neutral
         """)
         
         rank_categories = [
-            ("Quality", "quality"),
-            ("Rips", "rips"),
-            ("HDR", "hdr"),
-            ("Audio", "audio"),
-            ("Extras", "extras"),
-            ("Trash", "trash")
+            ("Quality", "quality", {
+                "av1": False, "avc": True, "bluray": True, "dvd": False,
+                "hdtv": True, "hevc": True, "mpeg": False, "remux": False,
+                "vhs": False, "web": True, "webdl": True, "webmux": False,
+                "xvid": False
+            }),
+            ("Rips", "rips", {
+                "bdrip": False, "brrip": False, "dvdrip": False,
+                "hdrip": False, "ppvrip": False, "tvrip": False,
+                "uhdrip": False, "vhsrip": False, "webdlrip": False,
+                "webrip": True
+            }),
+            ("HDR", "hdr", {
+                "bit10": True, "dolby_vision": False, "hdr": True,
+                "hdr10plus": True, "sdr": True
+            }),
+            ("Audio", "audio", {
+                "aac": True, "ac3": True, "atmos": True,
+                "dolby_digital": True, "dolby_digital_plus": True,
+                "dts_lossy": True, "dts_lossless": True,
+                "eac3": True, "flac": True, "mono": False,
+                "mp3": False, "stereo": True, "surround": True,
+                "truehd": True
+            }),
+            ("Extras", "extras", {
+                "three_d": False, "converted": False, "documentary": False,
+                "dubbed": True, "edition": True, "hardcoded": True,
+                "network": True, "proper": True, "repack": True,
+                "retail": True, "site": False, "subbed": True,
+                "upscaled": False
+            }),
+            ("Trash", "trash", {
+                "cam": False, "clean_audio": False, "pdtv": False,
+                "r5": False, "screener": False, "size": False,
+                "telecine": False, "telesync": False
+            })
         ]
         
         category_tabs = st.tabs([cat[0] for cat in rank_categories])
         
-        for tab, (category_name, category_key) in zip(category_tabs, rank_categories):
+        for tab, (category_name, category_key, default_fetch) in zip(category_tabs, rank_categories):
             with tab:
                 with st.form(f"custom_ranks_{category_key}_form"):
                     custom_ranks = settings_model.get('custom_ranks', {}).get(category_key, {})
@@ -771,17 +897,24 @@ def render_settings():
                                 "type": field_name,
                                 "fetch": field_value.fetch,
                                 "rank": field_value.rank,
-                                "enable": field_value.use_custom_rank
+                                "enable": field_value.use_custom_rank,
+                                "default_fetch": default_fetch.get(field_name, True)
                             })
                     
                     # Sort the list by type for consistency
                     ranks_list.sort(key=lambda x: x['type'])
                     
+                    st.markdown(f"""
+                    #### {category_name} Attributes
+                    Configure how {category_name.lower()} attributes affect torrent ranking.
+                    Default fetch values are shown in the help text for each attribute.
+                    """)
+                    
                     edited_ranks = st.data_editor(
                         ranks_list,
                         num_rows="fixed",
                         use_container_width=True,
-                        disabled=["type"],
+                        disabled=["type", "default_fetch"],
                         column_config={
                             "type": st.column_config.TextColumn(
                                 "Attribute",
@@ -789,17 +922,24 @@ def render_settings():
                             ),
                             "fetch": st.column_config.CheckboxColumn(
                                 "Fetch",
-                                help="Whether to look for this attribute"
+                                help="Whether to consider this attribute (affects filtering)"
                             ),
                             "rank": st.column_config.NumberColumn(
                                 "Rank Value",
-                                help="The ranking score for this attribute"
+                                help="The ranking score (-10000 to 10000)",
+                                min_value=-10000,
+                                max_value=10000
                             ),
                             "enable": st.column_config.CheckboxColumn(
                                 "Override",
                                 help="Enable to use custom rank instead of profile default"
                             ),
-                        }
+                            "default_fetch": st.column_config.CheckboxColumn(
+                                "Default Fetch",
+                                help="The default fetch value for this attribute"
+                            ),
+                        },
+                        hide_index=True
                     )
                     
                     submit = st.form_submit_button(f'💾 Save {category_name} Ranks')
@@ -880,10 +1020,14 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                           ranking_model=ranking_model)
                 info_hash = "BE417768B5C3C5C1D9BCB2E7C119196DD76B5570"
 
+                # Use speed_mode from options config
+                speed_mode = settings_model.options.get("enable_fetch_speed_mode", True)
+                
                 torrent = rtn.rank(raw_title=raw_title_text_input,
                                    correct_title=correct_title_text_input, 
                                    infohash=info_hash, 
-                                   remove_trash=conf['remove_trash'])
+                                   remove_trash=conf['remove_trash'],
+                                   speed_mode=speed_mode)
 
             except Exception as err:
                 error_occurred = True
@@ -915,7 +1059,8 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                     "📊 Overview",
                     "🔍 Parsed Data",
                     "⚡ Quality Analysis",
-                    "🎯 Pattern Matches"
+                    "🎯 Pattern Matches",
+                    "📈 Additional Info"
                 ])
 
                 with analysis_tabs[0]:
@@ -1030,17 +1175,109 @@ def render_title(*, conf, index, initial_raw_title, initial_correct_title):
                     except Exception as err:
                         st.error(f"❌ Error displaying pattern matches: {str(err)}")
 
+                with analysis_tabs[4]:
+                    try:
+                        st.markdown("### 📊 Additional Information")
+                        additional_info = {
+                            "Seeders": torrent.seeders or "N/A",
+                            "Leechers": torrent.leechers or "N/A",
+                            "Infohash": torrent.infohash,
+                        }
+                        
+                        for label, value in additional_info.items():
+                            st.markdown(f"**{label}:** {value}")
+                            
+                        if torrent.trackers:
+                            st.markdown("### 🌐 Trackers")
+                            for tracker in torrent.trackers:
+                                st.markdown(f"- {tracker}")
+                    except Exception as err:
+                        st.error(f"❌ Error displaying additional info: {str(err)}")
+
 
 def render_preset_profiles():
     st.header("📚 Preset Ranking Profiles")
     st.markdown("""
     These are the built-in ranking profiles that you can use as a starting point.
     Each profile has different ranking weights optimized for specific use cases.
+    
+    - **default**: Optimized for streaming without transcoding
+    - **best**: Aimed at obtaining the highest quality content available
+    - **custom**: Start with a blank profile and customize everything
+    
+    The tables below show the exact ranking values for each attribute in each profile.
+    These values determine how torrents are scored during ranking.
     """)
     
-    for name, rank_model in rtn_rank_models.items():
-        with st.expander(f"📋 {name.title()} Profile"):
-            st.json(dict(rank_model))
+    # Quality Rankings
+    st.subheader("🎥 Quality Rankings")
+    quality_data = {
+        "Attribute": ["av1", "avc", "bluray", "dvd", "hdtv", "hevc", "mpeg", "remux", "vhs", "web", "webdl", "webmux", "xvid", "pdtv"],
+        "Default": [0, 500, 100, -1000, -1000, 500, -100, -10000, -10000, 150, 5000, -10000, -10000, -10000],
+        "Best": [0, 500, 100, -5000, -5000, 500, -1000, 10000, -10000, 100, 200, -10000, -10000, -10000],
+        "Custom": [0] * 14
+    }
+    st.dataframe(quality_data, use_container_width=True)
+    
+    # Rips Rankings
+    st.subheader("📼 Rips Rankings")
+    rips_data = {
+        "Attribute": ["bdrip", "brrip", "dvdrip", "hdrip", "ppvrip", "tvrip", "uhdrip", "vhsrip", "webdlrip", "webrip"],
+        "Default": [-1000, -1000, -1000, -1000, -1000, -10000, -1000, -10000, -10000, 30],
+        "Best": [-5000, -10000, -5000, -10000, -10000, -10000, -5000, -10000, -10000, -1000],
+        "Custom": [0] * 10
+    }
+    st.dataframe(rips_data, use_container_width=True)
+    
+    # HDR Rankings
+    st.subheader("🌈 HDR Rankings")
+    hdr_data = {
+        "Attribute": ["bit_10", "dolby_vision", "hdr", "hdr10plus", "sdr"],
+        "Default": [5, 50, 50, 0, 0],
+        "Best": [100, 1000, 500, 1000, 0],
+        "Custom": [0] * 5
+    }
+    st.dataframe(hdr_data, use_container_width=True)
+    
+    # Audio Rankings
+    st.subheader("🔊 Audio Rankings")
+    audio_data = {
+        "Attribute": ["aac", "ac3", "atmos", "dolby_digital", "dolby_digital_plus", "dts_lossy", "dts_lossless", 
+                     "eac3", "flac", "mono", "mp3", "stereo", "surround", "truehd"],
+        "Default": [250, 30, 400, 0, 0, 600, 0, 250, 0, -10000, -10000, 0, 0, -100],
+        "Best": [100, 50, 1000, 0, 0, 100, 1000, 150, 0, -1000, -1000, 0, 0, 1000],
+        "Custom": [0] * 14
+    }
+    st.dataframe(audio_data, use_container_width=True)
+    
+    # Extras Rankings
+    st.subheader("✨ Extras Rankings")
+    extras_data = {
+        "Attribute": ["three_d", "converted", "documentary", "dubbed", "edition", "hardcoded", "network", 
+                     "proper", "repack", "retail", "site", "subbed", "upscaled"],
+        "Default": [-10000, -1250, -250, 0, 100, 0, 300, 1000, 1000, 0, -10000, 0, -10000],
+        "Best": [-10000, -1000, -250, -1000, 100, 0, 0, 20, 20, 0, -10000, 0, -10000],
+        "Custom": [0] * 13
+    }
+    st.dataframe(extras_data, use_container_width=True)
+    
+    # Trash Rankings
+    st.subheader("🗑️ Trash Rankings")
+    trash_data = {
+        "Attribute": ["cam", "clean_audio", "r5", "satrip", "screener", "size", "telecine", "telesync"],
+        "Default": [-10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000],
+        "Best": [-10000, -10000, -10000, -10000, -10000, -10000, -10000, -10000],
+        "Custom": [0] * 8
+    }
+    st.dataframe(trash_data, use_container_width=True)
+    
+    st.markdown("""
+    ### 📝 Notes
+    - Positive values indicate preferred attributes
+    - Negative values indicate undesired attributes
+    - The `custom` profile starts with all values at 0, allowing you to build your own ranking system
+    - These values can be overridden using custom ranks in the settings
+    """)
 
 
 # Main content based on navigation
