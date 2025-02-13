@@ -104,7 +104,7 @@ with st.sidebar:
     
     page = st.radio(
         "Go to",
-        ["Settings", "Test Titles", "Preset Profiles"],
+        ["Settings", "Test Titles", "Preset Profiles", "Import/Export"],
         index=0
     )
     
@@ -1298,6 +1298,88 @@ def render_preset_profiles():
     """)
 
 
+def render_import_export():
+    st.header("📤 Import/Export Settings")
+    st.markdown("""
+    Import or export your RTN settings. You can:
+    - Export your current settings to a JSON file
+    - Import settings from a JSON file
+    - View and edit your current settings in JSON format
+    """)
+
+    tab1, tab2 = st.tabs(["📂 Import/Export File", "📝 View/Edit JSON"])
+
+    with tab1:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            # Export button and functionality
+            if st.button("📤 Export Settings"):
+                settings_model = get_settings_model(st.session_state.conf['settings_model'])
+                settings_json = settings_model.model_dump_json(indent=2)
+                
+                # Create a download button for the JSON file
+                st.download_button(
+                    label="💾 Download Settings JSON",
+                    data=settings_json,
+                    file_name="rtn_settings.json",
+                    mime="application/json"
+                )
+
+        with col2:
+            # Import button and functionality
+            uploaded_file = st.file_uploader("📥 Import Settings", type=['json'])
+            if uploaded_file is not None:
+                try:
+                    # Read and parse the uploaded JSON
+                    settings_json = uploaded_file.read()
+                    settings_model = SettingsModel.model_validate_json(settings_json)
+                    
+                    # Update the session state with the new settings
+                    st.session_state.conf['settings_model'] = settings_model.model_dump()
+                    save_conf_to_query_params()
+                    st.success("✅ Settings imported successfully!")
+                    st.rerun()  # Refresh the page to show the new settings
+                except Exception as e:
+                    st.error(f"❌ Error importing settings: {str(e)}")
+
+    with tab2:
+        st.markdown("""
+        ### Current Settings JSON
+        View your current settings in JSON format. You can also edit the JSON directly.
+        
+        !!! warning
+            Be careful when editing JSON directly. Invalid JSON or incorrect settings structure will cause errors.
+        """)
+        
+        # Get current settings as formatted JSON
+        settings_model = get_settings_model(st.session_state.conf['settings_model'])
+        current_settings_json = settings_model.model_dump_json(indent=2)
+        
+        # Create an editable JSON area
+        edited_json = st.text_area(
+            "Edit JSON",
+            value=current_settings_json,
+            height=400
+        )
+        
+        # Add apply button for JSON changes
+        if st.button("Apply JSON Changes"):
+            try:
+                # Validate and update settings
+                new_settings = SettingsModel.model_validate_json(edited_json)
+                st.session_state.conf['settings_model'] = new_settings.model_dump()
+                save_conf_to_query_params()
+                st.success("✅ Settings updated successfully!")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Error updating settings: {str(e)}")
+        
+        # Show current settings in a read-only format
+        with st.expander("View Parsed Settings"):
+            st.json(settings_model.model_dump())
+
+
 # Main content based on navigation
 if page == "Settings":
     render_settings()
@@ -1325,5 +1407,7 @@ elif page == "Test Titles":
         })
         save_conf_to_query_params()
         
-else:  # Preset Profiles
+elif page == "Preset Profiles":
     render_preset_profiles()
+elif page == "Import/Export":
+    render_import_export()
